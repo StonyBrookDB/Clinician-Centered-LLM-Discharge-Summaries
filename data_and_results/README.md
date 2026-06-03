@@ -37,6 +37,10 @@ The script writes fresh outputs to `analysis/`.
 - `analysis/table1_mean_survey_ratings_by_question.md`
 - `analysis/table_s6_role_delta_by_specialty.csv`
 - `analysis/table_s6_role_delta_by_specialty.md`
+- `analysis/figure1_annotation_role_statistics.csv`
+- `analysis/figure1_annotation_role_statistics.md`
+- `analysis/figure1_annotation_summary_type_statistics.csv`
+- `analysis/figure1_annotation_summary_type_statistics.md`
 - `analysis/figure1_annotation_harm_distribution.jpg`
 - `analysis/figure1_annotation_harm_distribution.md`
 - `analysis/figure2_los_shared_rating_trends.png`

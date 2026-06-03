@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import spearmanr, wilcoxon
+from scipy.stats import mannwhitneyu, spearmanr, wilcoxon
 
 
 EXPORT_DIR = Path(__file__).resolve().parent
@@ -32,6 +32,8 @@ DATA_DIR = EXPORT_DIR / "data"
 OUTPUT_DIR = EXPORT_DIR / "analysis"
 TABLE1_OUTPUT_PATH = OUTPUT_DIR / "table1_mean_survey_ratings_by_question.csv"
 TABLE_S6_OUTPUT_PATH = OUTPUT_DIR / "table_s6_role_delta_by_specialty.csv"
+FIG1_STATS_OUTPUT_PATH = OUTPUT_DIR / "figure1_annotation_role_statistics.csv"
+FIG1_SUMMARY_STATS_OUTPUT_PATH = OUTPUT_DIR / "figure1_annotation_summary_type_statistics.csv"
 FIG1_OUTPUT_PATH = OUTPUT_DIR / "figure1_annotation_harm_distribution.jpg"
 FIG2_OUTPUT_PATH = OUTPUT_DIR / "figure2_los_shared_rating_trends.png"
 FIG3_OUTPUT_PATH = OUTPUT_DIR / "figure3_role_delta_shared.png"
@@ -93,6 +95,14 @@ TABLE_S6_CAPTION = (
     "Table S6. Mean difference in scores between LLM-generated vs. human-authored "
     "summaries, stratified by question and reviewer specialty (N = 60)."
 )
+FIGURE1_STATS_CAPTION = (
+    "Figure 1 supplemental statistics. Annotation harm scores and issue counts compared "
+    "between PCP and hospitalist reviewers."
+)
+FIGURE1_SUMMARY_STATS_CAPTION = (
+    "Figure 1 supplemental statistics. Annotation harm scores compared between "
+    "human-authored and LLM-generated summaries."
+)
 FIGURE1_CAPTION = (
     "Figure 1. Heat map of physician reviewer annotated error counts and harm ratings "
     "by summary type. Each cell counts error annotations with the corresponding "
@@ -127,6 +137,32 @@ TABLE_S6_COLUMNS = (
     "Mean score [SD] difference between LLM-generated vs. human-authored summary (PCPs)",
     "Mean score [SD] difference between LLM-generated vs. human-authored summary (Hospitalists)",
     "P Value",
+)
+
+FIGURE1_STATS_COLUMNS = (
+    "Analysis",
+    "Unit",
+    "PCP n",
+    "PCP mean",
+    "PCP SD",
+    "Hospitalist n",
+    "Hospitalist mean",
+    "Hospitalist SD",
+    "Statistical test",
+    "P value",
+)
+
+FIGURE1_SUMMARY_STATS_COLUMNS = (
+    "Analysis",
+    "Unit",
+    "Human-authored n",
+    "Human-authored mean",
+    "Human-authored SD",
+    "LLM-generated n",
+    "LLM-generated mean",
+    "LLM-generated SD",
+    "Statistical test",
+    "P value",
 )
 
 
@@ -164,7 +200,15 @@ def _load_annotations() -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         fieldnames = set(reader.fieldnames or [])
-        required = {"summary_label", "harm_potential", "harm_likelihood"}
+        required = {
+            "encounter_id",
+            "reviewer_id",
+            "reviewer_role",
+            "summary_label",
+            "issue_type",
+            "harm_potential",
+            "harm_likelihood",
+        }
         missing = required.difference(fieldnames)
         if missing:
             missing_list = ", ".join(sorted(missing))
@@ -363,6 +407,140 @@ def _plot_annotation_harm_distribution(rows: list[dict[str, str]], path: Path) -
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
+
+
+def _format_stat(value: float, digits: int = 3) -> str:
+    if math.isnan(value):
+        return "NA"
+    return f"{value:.{digits}f}"
+
+
+def _annotation_harm_role_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for score_col, label in (
+        ("harm_potential", "Harm potential score"),
+        ("harm_likelihood", "Harm likelihood score"),
+    ):
+        values: dict[str, list[float]] = {"PCP": [], "Hospitalist": []}
+        for row in rows:
+            role = _reviewer_role(row["reviewer_role"])
+            values[role].append(float(_harm_score(row, score_col)))
+        pcp = values["PCP"]
+        hospitalist = values["Hospitalist"]
+        p = (
+            float(mannwhitneyu(pcp, hospitalist, alternative="two-sided", method="asymptotic").pvalue)
+            if pcp and hospitalist
+            else math.nan
+        )
+        out.append(
+            {
+                "Analysis": label,
+                "Unit": "Annotation",
+                "PCP n": str(len(pcp)),
+                "PCP mean": _format_stat(_mean(pcp), 2),
+                "PCP SD": _format_stat(_sd(pcp), 2),
+                "Hospitalist n": str(len(hospitalist)),
+                "Hospitalist mean": _format_stat(_mean(hospitalist), 2),
+                "Hospitalist SD": _format_stat(_sd(hospitalist), 2),
+                "Statistical test": "Mann-Whitney U, two-sided",
+                "P value": _pvalue(p),
+            }
+        )
+    return out
+
+
+def _annotation_harm_summary_type_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for score_col, label in (
+        ("harm_potential", "Harm potential score"),
+        ("harm_likelihood", "Harm likelihood score"),
+    ):
+        values: dict[str, list[float]] = {"Human": [], "AI": []}
+        for row in rows:
+            summary_type = _summary_type(row["summary_label"])
+            values[summary_type].append(float(_harm_score(row, score_col)))
+        human = values["Human"]
+        ai = values["AI"]
+        p = (
+            float(mannwhitneyu(human, ai, alternative="two-sided", method="asymptotic").pvalue)
+            if human and ai
+            else math.nan
+        )
+        out.append(
+            {
+                "Analysis": label,
+                "Unit": "Annotation",
+                "Human-authored n": str(len(human)),
+                "Human-authored mean": _format_stat(_mean(human), 2),
+                "Human-authored SD": _format_stat(_sd(human), 2),
+                "LLM-generated n": str(len(ai)),
+                "LLM-generated mean": _format_stat(_mean(ai), 2),
+                "LLM-generated SD": _format_stat(_sd(ai), 2),
+                "Statistical test": "Mann-Whitney U, two-sided",
+                "P value": _pvalue(p),
+            }
+        )
+    return out
+
+
+def _annotation_issue_count_role_rows(
+    annotation_rows: list[dict[str, str]],
+    likert_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    review_index: dict[str, dict[str, str]] = {}
+    for row in likert_rows:
+        review_index.setdefault(row["encounter_id"], {})[_reviewer_role(row["reviewer_role"])] = row["reviewer_id"]
+
+    annotation_counts: dict[tuple[str, str, str], int] = {}
+    for row in annotation_rows:
+        issue_type = row["issue_type"].strip().lower()
+        if issue_type not in {"inaccuracy", "omission"}:
+            continue
+        key = (row["encounter_id"], row["reviewer_id"], issue_type)
+        annotation_counts[key] = annotation_counts.get(key, 0) + 1
+
+    out: list[dict[str, str]] = []
+    for issue_type, label in (("inaccuracy", "Inaccuracy count"), ("omission", "Omission count")):
+        pcp_counts: list[float] = []
+        hospitalist_counts: list[float] = []
+        for encounter_id in sorted(review_index, key=lambda value: int(float(value))):
+            reviewers = review_index[encounter_id]
+            if "PCP" not in reviewers or "Hospitalist" not in reviewers:
+                continue
+            pcp_counts.append(float(annotation_counts.get((encounter_id, reviewers["PCP"], issue_type), 0)))
+            hospitalist_counts.append(
+                float(annotation_counts.get((encounter_id, reviewers["Hospitalist"], issue_type), 0))
+            )
+
+        differences = [pcp - hospitalist for pcp, hospitalist in zip(pcp_counts, hospitalist_counts)]
+        p = 1.0 if all(abs(difference) < 1e-12 for difference in differences) else float(
+            wilcoxon(pcp_counts, hospitalist_counts, alternative="two-sided", zero_method="wilcox").pvalue
+        )
+        out.append(
+            {
+                "Analysis": label,
+                "Unit": "Encounter-review",
+                "PCP n": str(len(pcp_counts)),
+                "PCP mean": _format_stat(_mean(pcp_counts), 3),
+                "PCP SD": _format_stat(_sd(pcp_counts), 3),
+                "Hospitalist n": str(len(hospitalist_counts)),
+                "Hospitalist mean": _format_stat(_mean(hospitalist_counts), 3),
+                "Hospitalist SD": _format_stat(_sd(hospitalist_counts), 3),
+                "Statistical test": "Wilcoxon signed-rank, two-sided",
+                "P value": _pvalue(p),
+            }
+        )
+    return out
+
+
+def _annotation_role_stat_rows(
+    annotation_rows: list[dict[str, str]],
+    likert_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    return _annotation_harm_role_rows(annotation_rows) + _annotation_issue_count_role_rows(
+        annotation_rows,
+        likert_rows,
+    )
 
 
 def _valid_rating(value: str) -> float | None:
@@ -686,6 +864,7 @@ def _write_figure_markdown(image_path: Path, caption: str, extra_markdown: str =
 
 def main() -> None:
     likert_rows = _load_likert()
+    annotation_rows = _load_annotations()
     rows = _rating_rows(likert_rows)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     _write_csv_and_markdown(TABLE1_OUTPUT_PATH, rows)
@@ -695,7 +874,25 @@ def main() -> None:
     _write_simple_csv_and_markdown(TABLE_S6_OUTPUT_PATH, TABLE_S6_COLUMNS, table_s6_rows, TABLE_S6_CAPTION)
     print(f"Wrote {len(table_s6_rows)} rows to {TABLE_S6_OUTPUT_PATH}")
     print(f"Wrote Markdown table to {TABLE_S6_OUTPUT_PATH.with_suffix('.md')}")
-    _plot_annotation_harm_distribution(_load_annotations(), FIG1_OUTPUT_PATH)
+    figure1_stats_rows = _annotation_role_stat_rows(annotation_rows, likert_rows)
+    _write_simple_csv_and_markdown(
+        FIG1_STATS_OUTPUT_PATH,
+        FIGURE1_STATS_COLUMNS,
+        figure1_stats_rows,
+        FIGURE1_STATS_CAPTION,
+    )
+    print(f"Wrote {len(figure1_stats_rows)} rows to {FIG1_STATS_OUTPUT_PATH}")
+    print(f"Wrote Markdown table to {FIG1_STATS_OUTPUT_PATH.with_suffix('.md')}")
+    figure1_summary_stats_rows = _annotation_harm_summary_type_rows(annotation_rows)
+    _write_simple_csv_and_markdown(
+        FIG1_SUMMARY_STATS_OUTPUT_PATH,
+        FIGURE1_SUMMARY_STATS_COLUMNS,
+        figure1_summary_stats_rows,
+        FIGURE1_SUMMARY_STATS_CAPTION,
+    )
+    print(f"Wrote {len(figure1_summary_stats_rows)} rows to {FIG1_SUMMARY_STATS_OUTPUT_PATH}")
+    print(f"Wrote Markdown table to {FIG1_SUMMARY_STATS_OUTPUT_PATH.with_suffix('.md')}")
+    _plot_annotation_harm_distribution(annotation_rows, FIG1_OUTPUT_PATH)
     _write_figure_markdown(FIG1_OUTPUT_PATH, FIGURE1_CAPTION)
     print(f"Wrote Figure 1 to {FIG1_OUTPUT_PATH}")
     print(f"Wrote Figure 1 Markdown to {FIG1_OUTPUT_PATH.with_suffix('.md')}")
