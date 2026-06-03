@@ -1,6 +1,6 @@
 # Code and Data Release for our preprint, _Clinician-Centered Evaluation of Large Language Model-Generated Discharge Summaries for Longer Hospitalizations: Insights from Hospitalists and Primary Care Physicians_
 
-This repository serves as the public release of code and de-identified data used for the study.
+This repository serves as the public release of code and de-identified data used for the study. Individual README files are available within each submodule.
 
 It is structured as follows:
 
