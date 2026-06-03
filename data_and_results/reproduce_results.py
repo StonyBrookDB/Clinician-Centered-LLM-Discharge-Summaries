@@ -395,7 +395,10 @@ def _plot_annotation_harm_distribution(rows: list[dict[str, str]], path: Path) -
                 value = int(matrix[potential, likelihood])
                 if value:
                     ax.text(likelihood, potential, str(value), ha="center", va="center", fontsize=8)
-        ax.set_title(f"{SUMMARY_TYPE_DISPLAY[summary_type]} (N={annotation_counts[summary_type]})")
+        ax.set_title(
+            f"{SUMMARY_TYPE_DISPLAY[summary_type]} Errors (N={annotation_counts[summary_type]})",
+            fontsize=10,
+        )
         ax.set_xlabel("Likelihood of harm")
         ax.set_xticks(range(8))
         ax.set_yticks(range(8))
