@@ -1,0 +1,8 @@
+Question,Evaluators,Mean human-summary score,Mean AI-summary score,Mean score difference,P value
+Overall quality,Both,3.16,4.71,+1.55,1.40e-17
+Concise/readable,Both,3.39,4.66,+1.27,3.25e-15
+Factuality,Both,3.73,4.62,+0.89,1.08e-13
+Completeness,Both,3.42,4.69,+1.27,2.67e-15
+Easy to understand,PCP,3.20,4.75,+1.55,7.40e-10
+Easy to verbalize,PCP,3.27,4.75,+1.48,2.09e-09
+Easy to follow up,PCP,3.20,4.68,+1.48,4.37e-09
