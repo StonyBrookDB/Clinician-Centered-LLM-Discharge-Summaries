@@ -1,0 +1,8 @@
+| Metric | Mean score [SD] difference between LLM-generated vs. human-authored summary (PCPs) | Mean score [SD] difference between LLM-generated vs. human-authored summary (Hospitalists) | P Value |
+| --- | --- | --- | --- |
+| Quality | 1.70 [1.33] | 1.40 [1.03] | 0.0865 |
+| Conciseness/Readability | 1.48 [1.28] | 1.05 [1.14] | 0.0235 |
+| Factuality | 0.87 [1.10] | 0.92 [0.96] | 0.5907 |
+| Completeness | 1.47 [1.38] | 1.07 [0.97] | 0.0219 |
+
+**Table S6. Mean difference in scores between LLM-generated vs. human-authored summaries, stratified by question and reviewer specialty (N = 60).**
