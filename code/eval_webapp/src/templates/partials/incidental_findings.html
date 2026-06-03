@@ -1,0 +1,122 @@
+{# Incidental Findings Evaluation Section #}
+{% set factuality_hint = "" %}
+{% set clinical_importance_hint = "" %}
+
+<div class="ratings-section-content">
+    <div class="ratings-instruction">
+        <strong>Instructions:</strong> Evaluate each incidental finding below. Rate whether the finding can be traced back to the clinical notes and whether reporting it is appropriate (i.e., follow-up is needed). If you answer "No" to the first question, answer "No" to the second question as well.
+    </div>
+
+    {% if incidental_findings and incidental_findings|length > 0 %}
+        {% for finding in incidental_findings %}
+        <div class="incidental-finding-item">
+            <div class="finding-content">
+                <strong>Finding {{ loop.index }}:</strong> {{ finding.content }}
+            </div>
+
+            <div class="finding-questions">
+                <div class="finding-question">
+                    <p class="question-text">
+                        <strong>Is this incidental finding reported correctly?</strong>
+                        {% if factuality_hint and factuality_hint|trim %}
+                        <span class="hint-icon" tabindex="0" aria-label="{{ factuality_hint }}">
+                            i
+                            <span class="hint-tooltip">{{ factuality_hint }}</span>
+                        </span>
+                        {% endif %}
+                    </p>
+                    <form class="finding-form"
+                          hx-post="/incidental-findings/{{ finding.if_id }}/update"
+                          hx-trigger="change"
+                          hx-target="#review-status-badge"
+                          hx-swap="outerHTML"
+                          {% if read_only %}data-read-only="true"{% endif %}>
+                        <input type="hidden" name="field" value="factuality">
+                        <div class="yes-no-options">
+                            <label class="yes-no-option">
+                                <input type="radio" name="value" value="1"
+                                       {% if finding.factuality == 1 %}checked{% endif %}
+                                       {% if read_only %}disabled{% endif %}>
+                                <span class="option-label yes">Yes</span>
+                            </label>
+                            <label class="yes-no-option">
+                                <input type="radio" name="value" value="2"
+                                       {% if finding.factuality == 2 %}checked{% endif %}
+                                       {% if read_only %}disabled{% endif %}>
+                                <span class="option-label unsure">Unsure</span>
+                            </label>
+                            <label class="yes-no-option">
+                                <input type="radio" name="value" value="0"
+                                       {% if finding.factuality == 0 %}checked{% endif %}
+                                       {% if read_only %}disabled{% endif %}>
+                                <span class="option-label no">No</span>
+                            </label>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="finding-question">
+                    <p class="question-text">
+                        <strong>Should this incidental finding be reported on the discharge summary?</strong>
+                        {% if clinical_importance_hint and clinical_importance_hint|trim %}
+                        <span class="hint-icon" tabindex="0" aria-label="{{ clinical_importance_hint }}">
+                            i
+                            <span class="hint-tooltip">{{ clinical_importance_hint }}</span>
+                        </span>
+                        {% endif %}
+                    </p>
+                    <form class="finding-form"
+                          hx-post="/incidental-findings/{{ finding.if_id }}/update"
+                          hx-trigger="change"
+                          hx-target="#review-status-badge"
+                          hx-swap="outerHTML"
+                          {% if read_only %}data-read-only="true"{% endif %}>
+                        <input type="hidden" name="field" value="clinical_importance">
+                        <div class="yes-no-options">
+                            <label class="yes-no-option">
+                                <input type="radio" name="value" value="1"
+                                       {% if finding.clinical_importance == 1 %}checked{% endif %}
+                                       {% if read_only %}disabled{% endif %}>
+                                <span class="option-label yes">Yes</span>
+                            </label>
+                            <label class="yes-no-option">
+                                <input type="radio" name="value" value="2"
+                                       {% if finding.clinical_importance == 2 %}checked{% endif %}
+                                       {% if read_only %}disabled{% endif %}>
+                                <span class="option-label unsure">Unsure</span>
+                            </label>
+                            <label class="yes-no-option">
+                                <input type="radio" name="value" value="0"
+                                       {% if finding.clinical_importance == 0 %}checked{% endif %}
+                                       {% if read_only %}disabled{% endif %}>
+                                <span class="option-label no">No</span>
+                            </label>
+                        </div>
+                    </form>
+                    <div class="finding-comment">
+                        <label class="comment-label" for="if-comment-{{ finding.if_id }}">Comment (optional)</label>
+                        <form class="comment-form"
+                              hx-post="/incidental-findings/{{ finding.if_id }}/comment"
+                              hx-trigger="submit, keyup changed delay:600ms"
+                              hx-target="#review-status-badge"
+                              hx-swap="outerHTML"
+                              {% if read_only %}data-read-only="true"{% endif %}>
+                            <textarea id="if-comment-{{ finding.if_id }}"
+                                      name="comment_text"
+                                      rows="3"
+                                      placeholder="Add any context or rationale..."
+                                      {% if read_only %}disabled{% endif %}>{{ finding.clinical_importance_comment or '' }}</textarea>
+                            <div class="comment-actions">
+                                <button type="submit" class="comment-save" {% if read_only %}disabled{% endif %}>Save comment</button>
+                                <span class="comment-saved" role="status" aria-live="polite">Saved</span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="no-findings">No incidental findings found for this encounter.</p>
+    {% endif %}
+</div>

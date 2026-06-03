@@ -1,0 +1,32 @@
+{# Macro for a single rating question with radio buttons #}
+{% macro rating_question(question_text, field_name, current_value, encounter_number, doctor_id, hint_text="", read_only=False) %}
+<div class="rating-question">
+    <h4 class="rating-question-text">
+        {{ question_text }}
+        {% if hint_text and hint_text|trim %}
+        <span class="hint-icon" tabindex="0" aria-label="{{ hint_text }}">
+            i
+            <span class="hint-tooltip">{{ hint_text }}</span>
+        </span>
+        {% endif %}
+    </h4>
+    <form class="rating-form"
+          hx-post="/ratings/{{ encounter_number }}/{{ doctor_id }}/update"
+          hx-trigger="change"
+          hx-target="#review-status-badge"
+          hx-swap="outerHTML"
+          {% if read_only %}data-read-only="true"{% endif %}>
+        <input type="hidden" name="field" value="{{ field_name }}">
+        <div class="rating-options">
+            {% for value, label in [(1, "Strongly Disagree"), (2, "Disagree"), (3, "Neutral"), (4, "Agree"), (5, "Strongly Agree")] %}
+            <label class="rating-option">
+                <input type="radio" name="value" value="{{ value }}"
+                       {% if current_value == value %}checked{% endif %}
+                       {% if read_only %}disabled{% endif %}>
+                <span class="rating-label">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </form>
+</div>
+{% endmacro %}

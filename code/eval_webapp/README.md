@@ -1,0 +1,203 @@
+# Discharge Summary Review Demo App
+
+This is a small FastAPI web app for reviewing two discharge summaries side by side with the clinical notes for an encounter. It includes a fabricated demo encounter and a demo login so you can run the workflow locally.
+
+The publication copy does not include real patient records, real clinician accounts, production assignments, or a production database.
+
+## What Is Included
+
+- The web app source code in `eval_v2/`
+- A fabricated demo account
+- A fabricated demo encounter in `eval_v2/dummy_account/`
+- Setup scripts that create a local encrypted database and encrypt the demo files with your own key
+- A simple data folder you can edit when adding your own de-identified data
+
+Demo login:
+
+```text
+Username: test
+Password: test
+```
+
+## Setup
+
+Use Python 3.12 if available.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python -m eval_v2.scripts.generate_publication_keys --env .env
+source .env
+python -m eval_v2.scripts.setup_publication_demo
+```
+
+The key-generation step fills in `DB_KEY`, `FILES_KEY`, and `SECRET_KEY` in your local `.env` file. Keep that file private.
+
+## Environment Flags
+
+The `.env` file controls local secrets and optional workflow behavior.
+
+`DB_KEY`
+
+Encrypts the local SQLCipher database at `eval_v2/data/reviews.db`. Generate this with the key helper; do not reuse a key from another project.
+
+`FILES_KEY`
+
+Encrypts copied clinical/demo files under `eval_v2/data/raw/`. Generate this with the key helper. If you change it after setup, run setup again so files are encrypted with the new key.
+
+`SECRET_KEY`
+
+Signs login cookies for your local app. Generate this with the key helper and keep it private.
+
+`ENABLE_GATING_LOGIC`
+
+Set to `1` to force the staged review flow: finish the first summary before the second, then incidental findings, then overall preference. The demo default is `0`.
+
+`ENABLE_HIGHLIGHTS`
+
+Set to `1` to enable clinical-note highlights and the highlights timeline. The publication demo default is `1`.
+
+`FIRST_LOOK_ENABLED`
+
+Set to `1` to use each assignment's `first_look` value to decide whether Summary A or Summary B appears first. The demo default is `0`, which always shows Summary A first.
+
+`DB_BACKUP_ENABLED`
+
+Set to `1` to enable periodic encrypted database backups while the server is running. The publication demo default is `0`.
+
+`ADMIN_USERNAMES`
+
+Comma-separated usernames that should see the admin overview. Leave blank for normal demo use.
+
+## Run The App
+
+```bash
+source .venv/bin/activate
+source .env
+python -m uvicorn eval_v2.main:app --reload --port 8000
+```
+
+Open the local URL shown by Uvicorn, then log in with `test` / `test`.
+
+## HTTPS
+
+For local testing on your own computer, plain HTTP at `http://127.0.0.1:8000` is usually fine.
+
+For any shared, remote, or internet-accessible deployment, put the app behind a web server that handles HTTPS. A common setup is:
+
+```text
+Browser -> HTTPS reverse proxy -> Uvicorn on localhost
+```
+
+Use Nginx, Caddy, Apache, or another reverse proxy to:
+
+- Serve the public HTTPS site.
+- Manage TLS certificates.
+- Forward requests to Uvicorn running on `127.0.0.1:8000`.
+- Set normal proxy headers such as `Host`, `X-Forwarded-For`, and `X-Forwarded-Proto`.
+
+Do not expose `uvicorn --reload` directly to the internet. For deployment, run Uvicorn without `--reload`, bind it to localhost, and let the reverse proxy handle public traffic.
+
+If you use Caddy, HTTPS can be mostly automatic once DNS points to the server:
+
+```text
+your-domain.example {
+    reverse_proxy 127.0.0.1:8000
+}
+```
+
+If you use Nginx, configure a TLS server block for your domain and proxy to Uvicorn:
+
+```text
+server {
+    listen 443 ssl;
+    server_name your-domain.example;
+
+    ssl_certificate /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## Reset The Demo
+
+To wipe ratings, comments, highlights, annotations, and the local demo database:
+
+```bash
+source .env
+python -m eval_v2.scripts.setup_publication_demo
+```
+
+## Files You May Edit
+
+`eval_v2/dummy_account/`
+
+The source files for the fabricated demo encounter. During setup, these are copied into `eval_v2/data/raw/-1/` and encrypted with your `FILES_KEY`.
+
+`eval_v2/data/doctor_info.csv`
+
+Local user rows. The demo setup script writes one synthetic user row.
+
+`eval_v2/data/review_assignments.csv`
+
+Which encounter each user should review. The demo setup script writes one assignment for the fabricated encounter.
+
+`eval_v2/data/incidental_findings.csv`
+
+Optional findings shown in the incidental findings tab.
+
+`eval_v2/config.yaml`
+
+Generated by setup. It stores local login credentials. Do not commit real credentials.
+
+`eval_v2/data/reviews.db`
+
+Generated by setup. It is an encrypted SQLCipher database. Do not commit real review data.
+
+## Adding Your Own De-Identified Encounter
+
+Use the demo encounter as the template.
+
+```text
+eval_v2/data/raw/<encounter_number>/
+|-- inpatient_clinical_summary.rtf
+|-- summary_A.rtf
+|-- summary_b_narrative.txt
+`-- rtfs/
+    |-- manifest.json
+    |-- admission_note.rtf
+    |-- progress_note_day1.rtf
+    `-- discharge_note.rtf
+```
+
+`manifest.json` maps note order to filenames:
+
+```json
+{
+  "0": "admission_note.rtf",
+  "1": "progress_note_day1.rtf",
+  "2": "discharge_note.rtf"
+}
+```
+
+Then add matching rows to:
+
+- `eval_v2/data/doctor_info.csv`
+- `eval_v2/data/review_assignments.csv`
+- `eval_v2/data/incidental_findings.csv`, if you want findings to appear
+
+Only load data that has already been de-identified.
+
+## Notes
+
+- Clinical file rendering uses `unrtf` and `pandoc`. Install those system tools if clinical notes do not render as HTML.
+- Highlights and annotations are enabled by default in `.env.example`.
+- Automatic database backups are disabled by default in this publication copy.

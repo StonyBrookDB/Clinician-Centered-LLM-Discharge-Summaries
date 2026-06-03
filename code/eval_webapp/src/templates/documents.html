@@ -1,0 +1,4344 @@
+{% extends "base.html" %}
+
+{% block title %}Document Viewer - Discharge Summary Evaluation{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/review_forms.css">
+<style>
+    html, body {
+        height: auto;
+    }
+    main.container {
+        overflow: visible;
+    }
+    .viewer-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .viewer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+    .viewer-header h1 {
+        margin: 0;
+        color: #1f2937;
+        font-size: 1.5rem;
+    }
+    .case-info {
+        display: flex;
+        gap: 1.5rem;
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
+    .case-info span {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .case-info strong {
+        color: #374151;
+    }
+
+    .tabs-container {
+        display: flex;
+        flex-direction: column;
+        margin-top: 0.75rem;
+    }
+
+    .tab-buttons {
+        display: flex;
+        gap: 0.5rem;
+        border-bottom: 2px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+    .tab-btn {
+        padding: 0.75rem 1.5rem;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: #6b7280;
+        transition: all 0.2s;
+    }
+    .tab-btn:hover {
+        color: #374151;
+        background: #f9fafb;
+    }
+    .tab-btn.active {
+        color: #0068c9;
+        border-bottom-color: #0068c9;
+    }
+
+    .tab-content {
+        display: none;
+        padding-top: 0.75rem;
+    }
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Navigation bar */
+    .doc-navigation {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+    }
+    .doc-navigation-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .note-dropdown {
+        position: relative;
+        flex: 1;
+        width: 100%;
+        flex-basis: 100%;
+    }
+    .note-dropdown-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: white;
+        cursor: pointer;
+        text-align: left;
+    }
+    .note-dropdown-text {
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+    }
+    .note-dropdown-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #111827;
+    }
+    .note-dropdown-meta {
+        font-size: 0.8rem;
+        color: #4b5563;
+    }
+    .note-dropdown-caret {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+    .note-dropdown-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        max-height: 320px;
+        overflow-y: auto;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+        z-index: 20;
+        display: none;
+    }
+    .note-dropdown.open .note-dropdown-menu {
+        display: block;
+    }
+    .note-dropdown-item {
+        width: 100%;
+        border: none;
+        background: white;
+        padding: 0.55rem 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        cursor: pointer;
+        text-align: left;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .note-dropdown-item:last-child {
+        border-bottom: none;
+    }
+    .note-dropdown-item:hover {
+        background: #f8fafc;
+    }
+    .note-dropdown-item.active {
+        background: #eff6ff;
+        border-left: 3px solid #0068c9;
+        padding-left: 0.6rem;
+    }
+    .note-dropdown-item.hidden {
+        display: none;
+    }
+    .note-item-info {
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+    .note-item-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #111827;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 360px;
+    }
+    .note-item-meta {
+        font-size: 0.8rem;
+        color: #4b5563;
+        white-space: nowrap;
+    }
+    .note-item-badges {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.2rem;
+        flex-shrink: 0;
+    }
+    .note-item-badge {
+        background: #dbeafe;
+        color: #1e3a8a;
+        padding: 0.1rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.65rem;
+        font-weight: 600;
+    }
+    .nav-btn {
+        padding: 0.5rem 1rem;
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: #374151;
+        transition: background 0.2s;
+    }
+    .nav-btn:hover:not(:disabled) {
+        background: #e5e7eb;
+    }
+    .nav-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .doc-counter {
+        font-size: 0.875rem;
+        color: #6b7280;
+        white-space: nowrap;
+    }
+    .cited-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: #dbeafe;
+        color: #1e40af;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .day-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: #f3e8ff;
+        color: #6b21a8;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .note-type-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: #ecfdf3;
+        color: #166534;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .publish-indicator {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: #fef3c7;
+        color: #92400e;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    /* View mode toggle */
+    .view-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: auto;
+    }
+    .view-toggle-label {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+    .toggle-btn {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.8rem;
+        border: 1px solid #d1d5db;
+        background: #f9fafb;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .toggle-btn:first-of-type {
+        border-radius: 4px 0 0 4px;
+    }
+    .toggle-btn:last-of-type {
+        border-radius: 0 4px 4px 0;
+        margin-left: -1px;
+    }
+    .toggle-btn.active {
+        background: #0068c9;
+        color: white;
+        border-color: #0068c9;
+    }
+    .toggle-btn:hover:not(.active) {
+        background: #e5e7eb;
+    }
+
+    /* Part selector for Summary A */
+    .part-selector {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+        flex-shrink: 0;
+    }
+    .part-btn {
+        padding: 0.5rem 1.25rem;
+        background: #f3f4f6;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: #374151;
+        transition: all 0.2s;
+    }
+    .part-btn:hover {
+        background: #e5e7eb;
+    }
+    .part-btn.active {
+        background: #0068c9;
+        color: white;
+        border-color: #0068c9;
+    }
+    .part-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Document Viewer */
+    .doc-viewer {
+        height: 70vh;
+        min-height: 500px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #f9fafb;
+        position: relative;
+    }
+    .doc-viewer iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+    .doc-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6b7280;
+        font-style: italic;
+    }
+
+    /* Summary B container */
+    .summary-b-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .summary-b-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+    }
+    .summary-annotation-note {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+    }
+    .annotation-mode-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .annotation-mode-toggle label {
+        font-size: 0.875rem;
+        color: #374151;
+        cursor: pointer;
+    }
+    .summary-b-viewer {
+        height: 70vh;
+        min-height: 500px;
+        border: 1px solid #e5e7eb;
+        border-radius: 0 0 8px 8px;
+        overflow: hidden;
+        background: white;
+    }
+    .summary-b-viewer iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    /* Error message */
+    .error-message {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .render-fallback-message {
+        background: #fff7ed;
+        border: 1px solid #fdba74;
+        color: #9a3412;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+
+    /* Back button */
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #f3f4f6;
+        color: #374151;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: background-color 0.2s;
+        flex-shrink: 0;
+    }
+    .back-btn:hover {
+        background: #e5e7eb;
+        text-decoration: none;
+    }
+
+    .footer-actions {
+        margin-top: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    /* Highlights sidebar placeholder */
+    .highlights-panel {
+        position: fixed;
+        right: 0;
+        top: 60px;
+        bottom: 0;
+        width: 300px;
+        background: white;
+        border-left: 1px solid #e5e7eb;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        transform: translateX(100%);
+        transition: transform 0.3s;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+    }
+    .highlights-panel.open {
+        transform: translateX(0);
+    }
+    .highlights-panel.hidden {
+        display: none;
+    }
+    .highlights-panel-header {
+        padding: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .highlights-panel-header h3 {
+        margin: 0;
+        font-size: 1rem;
+    }
+    .highlights-panel-close {
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: #6b7280;
+    }
+    .highlights-panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+    .highlights-toggle-btn {
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
+        display: none;
+        padding: 0.75rem 1rem;
+        background: #0068c9;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        z-index: 99;
+    }
+    .highlights-toggle-btn.visible {
+        display: inline-flex;
+        align-items: center;
+    }
+    .highlights-toggle-btn:hover {
+        background: #0054a3;
+    }
+
+    /* Annotations panel for Summary B */
+    .annotations-panel {
+        position: fixed;
+        right: 0;
+        top: 60px;
+        bottom: 0;
+        width: 350px;
+        background: white;
+        border-left: 1px solid #e5e7eb;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        transform: translateX(100%);
+        transition: transform 0.3s;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+    }
+    .annotations-panel.open {
+        transform: translateX(0);
+    }
+    .annotations-panel-header {
+        padding: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .annotations-panel-header h3 {
+        margin: 0;
+        font-size: 1rem;
+    }
+    .annotations-panel-close {
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: #6b7280;
+    }
+    .annotations-panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+    .annotations-toggle-btn {
+        position: fixed;
+        right: 1rem;
+        bottom: 4rem;
+        padding: 0.75rem 1rem;
+        background: #dc2626;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        z-index: 99;
+        display: none;
+    }
+    .annotations-toggle-btn.visible {
+        display: block;
+    }
+    .annotations-toggle-btn:hover {
+        background: #b91c1c;
+    }
+    .annotation-item {
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 0.75rem;
+        cursor: pointer;
+        transition: box-shadow 0.15s;
+    }
+    .annotation-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .annotation-item.inaccuracy { background: #fef2f2; border-left: 3px solid #ef4444; }
+    .annotation-item.omission { background: #eff6ff; border-left: 3px solid #3b82f6; }
+    .annotation-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .annotation-item-type {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .annotation-item.inaccuracy .annotation-item-type { color: #dc2626; }
+    .annotation-item.omission .annotation-item-type { color: #2563eb; }
+    .annotation-item-harm {
+        font-size: 0.7rem;
+        color: #6b7280;
+    }
+    .annotation-item-text {
+        font-size: 0.8rem;
+        color: #374151;
+        line-height: 1.4;
+        margin-bottom: 0.5rem;
+        font-style: italic;
+    }
+    .annotation-item-comment {
+        font-size: 0.8rem;
+        color: #1f2937;
+    }
+
+    /* Sidebar item action buttons */
+    .sidebar-item-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(0,0,0,0.1);
+    }
+    .sidebar-action-btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .sidebar-action-btn:hover {
+        background: #f3f4f6;
+    }
+    .sidebar-action-btn.edit-btn {
+        color: #2563eb;
+        border-color: #bfdbfe;
+    }
+    .sidebar-action-btn.edit-btn:hover {
+        background: #eff6ff;
+    }
+    .sidebar-action-btn.delete-btn {
+        color: #dc2626;
+        border-color: #fecaca;
+    }
+    .sidebar-action-btn.delete-btn:hover {
+        background: #fef2f2;
+    }
+
+    /* Highlights timeline */
+    .timeline-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        height: 100%;
+        min-height: 0;
+    }
+    .timeline-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .timeline-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    .timeline-toggle {
+        display: inline-flex;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .timeline-toggle-btn {
+        padding: 0.4rem 0.85rem;
+        font-size: 0.8rem;
+        border: none;
+        background: #f9fafb;
+        color: #374151;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .timeline-toggle-btn + .timeline-toggle-btn {
+        border-left: 1px solid #d1d5db;
+    }
+    .timeline-toggle-btn.active {
+        background: #0068c9;
+        color: white;
+    }
+    .timeline-day-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .timeline-search {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .timeline-search-input {
+        min-width: 200px;
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: white;
+    }
+    .timeline-search-input:focus {
+        outline: none;
+        border-color: #0068c9;
+        box-shadow: 0 0 0 2px rgba(0, 104, 201, 0.12);
+    }
+    .timeline-search-status {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        padding: 0.45rem 0.75rem;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #1e3a8a;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .timeline-search-status.active {
+        display: inline-flex;
+    }
+    .timeline-search-message {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+    .note-search-row {
+        flex-wrap: wrap;
+    }
+    .note-search {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .note-search-input {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #cbd5f5;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        width: 220px;
+        background: white;
+    }
+    .note-search-input:focus {
+        outline: none;
+        border-color: #0068c9;
+        box-shadow: 0 0 0 2px rgba(0, 104, 201, 0.12);
+    }
+    .note-search-status {
+        font-size: 0.8rem;
+        color: #1e3a8a;
+        font-weight: 600;
+    }
+    .note-search-message {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+    .timeline-day-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #374151;
+        padding: 0.2rem 0.5rem;
+        background: #f3f4f6;
+        border-radius: 6px;
+    }
+    .timeline-axis {
+        display: flex;
+        gap: 1.5rem;
+        overflow-x: auto;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: white;
+        min-height: 200px;
+    }
+    .timeline-day {
+        min-width: 0;
+        width: 100%;
+        flex: 0 0 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        padding: 0 0.5rem;
+        border-left: 2px solid #e5e7eb;
+    }
+    .timeline-day:first-child {
+        border-left: none;
+        padding-left: 0;
+    }
+    .timeline-day-header {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #6b7280;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    .timeline-tree {
+        position: relative;
+        padding-left: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        width: 100%;
+    }
+    .timeline-tree::before {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 0.2rem;
+        bottom: 0.2rem;
+        width: 1px;
+        background: #e5e7eb;
+    }
+    .timeline-node-row {
+        position: relative;
+        padding-left: 0.75rem;
+        width: 100%;
+    }
+    .timeline-node-row::before {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 50%;
+        width: 10px;
+        height: 1px;
+        background: #e5e7eb;
+    }
+    .timeline-node {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 0.35rem 0.5rem;
+        cursor: pointer;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        width: 100%;
+    }
+    .timeline-node:hover {
+        border-color: #0068c9;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+    }
+    .timeline-node.muted {
+        opacity: 0.6;
+    }
+    .timeline-node.muted.timeline-node-blink {
+        opacity: 1;
+    }
+    .timeline-node-spotlight {
+        opacity: 1;
+        border-color: #f97316;
+        background: #fff7ed;
+    }
+    .timeline-node-main {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        width: 100%;
+    }
+    .timeline-node-details {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.25rem;
+    }
+    .timeline-node-stats {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        font-size: 0.72rem;
+        color: #4b5563;
+    }
+    .timeline-badge {
+        background: #eef2f7;
+        color: #334155;
+        padding: 0.08rem 0.45rem;
+        border-radius: 999px;
+        font-weight: 600;
+    }
+    .timeline-badge.cited {
+        background: #dbeafe;
+        color: #1e3a8a;
+    }
+    .timeline-badge.not-cited {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+    .timeline-node-title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #1f2937;
+        max-width: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+    }
+    .timeline-node-blink {
+        animation: timelineBlink 1.4s ease-in-out 3;
+        border-color: #f97316;
+    }
+    @keyframes timelineBlink {
+        0% {
+            box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.65);
+            background: #fff7ed;
+            transform: translateY(0);
+        }
+        40% {
+            box-shadow: 0 0 0 14px rgba(249, 115, 22, 0.25);
+            background: #ffedd5;
+            transform: translateY(-1px);
+        }
+        70% {
+            box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.35);
+            background: #e0f2fe;
+            transform: translateY(0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+            background: #f9fafb;
+            transform: translateY(0);
+        }
+    }
+    .timeline-node-meta {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+    .timeline-count {
+        background: #e5e7eb;
+        color: #374151;
+        padding: 0.05rem 0.35rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.7rem;
+    }
+    .timeline-comment-count {
+        color: #6b7280;
+        font-size: 0.7rem;
+        background: #f3f4f6;
+        padding: 0.05rem 0.35rem;
+        border-radius: 999px;
+    }
+    .timeline-cited {
+        font-size: 0.7rem;
+        background: #dbeafe;
+        color: #1e40af;
+        padding: 0.05rem 0.35rem;
+        border-radius: 999px;
+    }
+    .timeline-color-row {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .timeline-color-chip {
+        height: 10px;
+        border-radius: 999px;
+        min-width: 12px;
+    }
+    .timeline-empty {
+        color: #6b7280;
+        font-style: italic;
+    }
+    .timeline-detail {
+        display: none;
+        flex-direction: column;
+        gap: 1rem;
+        height: 100%;
+        min-height: 0;
+    }
+    .timeline-detail.active {
+        display: flex;
+    }
+    .timeline-detail-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: #f5f5f5;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .timeline-detail-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.35rem;
+    }
+    .timeline-detail-meta {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+    .timeline-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .timeline-action-btn {
+        padding: 0.5rem 0.9rem;
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+        background: #f9fafb;
+        color: #374151;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.2s;
+    }
+    .timeline-action-btn:hover {
+        background: #e5e7eb;
+    }
+    .timeline-action-btn.primary {
+        background: #0068c9;
+        color: white;
+        border-color: #0068c9;
+    }
+    .timeline-action-btn.primary:hover {
+        background: #0054a3;
+    }
+    .timeline-events {
+        flex: 1;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: white;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .timeline-event {
+        border-left: 6px solid #d1d5db;
+        border-radius: 6px;
+        padding: 0.75rem;
+        background: #f9fafb;
+    }
+    .timeline-event-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-bottom: 0.35rem;
+    }
+    .timeline-event-text {
+        font-size: 0.9rem;
+        color: #1f2937;
+        line-height: 1.4;
+    }
+    .timeline-event-comment {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-top: 0.4rem;
+        font-style: italic;
+    }
+    .timeline-event-actions {
+        margin-top: 0.5rem;
+        display: flex;
+        gap: 0.5rem;
+    }
+    .timeline-nav-btn {
+        background: #eef2ff;
+        border-color: #c7d2fe;
+        color: #4338ca;
+    }
+    .timeline-nav-btn:hover {
+        background: #e0e7ff;
+    }
+    .color-yellow { background: #fef08a; }
+    .color-green { background: #bbf7d0; }
+    .color-blue { background: #bfdbfe; }
+    .color-pink { background: #fbcfe8; }
+    .color-orange { background: #fed7aa; }
+    .timeline-event.color-yellow { border-left-color: #f59e0b; }
+    .timeline-event.color-green { border-left-color: #10b981; }
+    .timeline-event.color-blue { border-left-color: #3b82f6; }
+    .timeline-event.color-pink { border-left-color: #ec4899; }
+    .timeline-event.color-orange { border-left-color: #f97316; }
+    .search-hit {
+        background: #99f6e4;
+        box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
+        border-radius: 3px;
+        padding: 0 2px;
+    }
+    .search-hit-pulse {
+        animation: searchPulse 1.2s ease-out 2;
+    }
+    @keyframes searchPulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.6);
+        }
+        60% {
+            box-shadow: 0 0 0 8px rgba(13, 148, 136, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(13, 148, 136, 0);
+        }
+    }
+    .search-nav {
+        display: none;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        background: #ecfeff;
+        border: 1px solid #cffafe;
+        font-size: 0.75rem;
+        color: #0f172a;
+    }
+    .search-nav-term {
+        font-weight: 600;
+        color: #0f766e;
+    }
+    .search-nav-count {
+        color: #64748b;
+    }
+    .search-nav-btn {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.75rem;
+        border-radius: 999px;
+    }
+    .search-nav-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+    .search-nav-close {
+        border: none;
+        background: transparent;
+        color: #0f766e;
+        font-size: 0.9rem;
+        cursor: pointer;
+        padding: 0 0.35rem;
+    }
+    .search-nav-close:hover {
+        color: #0f172a;
+    }
+    .tab-btn .tab-check {
+        margin-left: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #16a34a;
+        display: none;
+    }
+    .tab-btn .tab-check.visible {
+        display: inline;
+    }
+    .summary-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        min-height: 0;
+    }
+    .summary-gate {
+        display: none;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 1.5rem;
+        border-radius: 8px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+    }
+    .summary-gate h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #9a3412;
+    }
+    .summary-gate p {
+        margin: 0;
+        color: #92400e;
+    }
+    .summary-gate-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .summary-gate-btn {
+        padding: 0.6rem 1rem;
+        border: none;
+        border-radius: 6px;
+        background: #ea580c;
+        color: #ffffff;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .summary-gate-btn:hover {
+        background: #c2410c;
+    }
+    .summary-gate-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .summary-gate-warning {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #b45309;
+        display: none;
+    }
+    .ratings-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        overflow: visible;
+    }
+    .ratings-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem 1.25rem;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .summary-ratings .ratings-section-header {
+        cursor: default;
+    }
+    .ratings-section-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #1f2937;
+    }
+    .ratings-section-content {
+        padding: 1.25rem;
+    }
+    .rating-question {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .rating-question:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    .rating-question-text {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #1f2937;
+        line-height: 1.4;
+    }
+    .hint-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        margin-left: 6px;
+        border-radius: 50%;
+        background: #1d4ed8;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: help;
+        position: relative;
+        top: -1px;
+    }
+    .hint-tooltip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: 260px;
+        padding: 0.6rem 0.75rem;
+        border-radius: 6px;
+        background: #111827;
+        color: #f9fafb;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        display: none;
+        z-index: 5;
+    }
+    .hint-icon:hover .hint-tooltip,
+    .hint-icon:focus .hint-tooltip {
+        display: block;
+    }
+    .rating-form {
+        margin: 0;
+    }
+    .rating-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .rating-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .rating-option:hover {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+    }
+    .rating-option input[type="radio"] {
+        margin: 0;
+        cursor: pointer;
+    }
+    .rating-option input[type="radio"]:checked + .rating-label {
+        font-weight: 600;
+        color: #0068c9;
+    }
+    .rating-option:has(input:checked) {
+        background: #e0f2fe;
+        border-color: #0068c9;
+    }
+    .rating-label {
+        font-size: 0.875rem;
+        color: #374151;
+        white-space: nowrap;
+    }
+    .pcp-questions {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid #e5e7eb;
+    }
+    .pcp-divider {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .pcp-divider::before,
+    .pcp-divider::after {
+        content: "";
+        flex: 1;
+        border-bottom: 1px solid #d1d5db;
+    }
+    .pcp-divider span {
+        padding: 0 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6b7280;
+        background: white;
+    }
+    .ratings-locked-note {
+        font-size: 0.85rem;
+        color: #9a3412;
+    }
+    .summary-ratings.ratings-locked {
+        opacity: 0.75;
+    }
+    .review-status-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0.75rem 0 0.5rem 0;
+    }
+    .review-status-row .status-label {
+        font-weight: 600;
+        color: #374151;
+    }
+    .read-only-banner {
+        margin: 0.75rem 0 0.5rem 0;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #fdba74;
+        background: #fff7ed;
+        color: #9a3412;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    .read-only-banner strong {
+        display: inline-block;
+        margin-right: 0.35rem;
+    }
+    .demo-banner {
+        margin-top: 0.75rem;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #93c5fd;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    .demo-banner strong {
+        display: inline-block;
+        margin-right: 0.35rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="viewer-container">
+    <div class="viewer-header">
+        <h1>Review Interface</h1>
+        <div class="case-info">
+            <span><strong>Encounter:</strong> {{ encounter_number }}</span>
+            {% if patient_age %}<span><strong>Age:</strong> {{ patient_age }}</span>{% endif %}
+            {% if patient_gender %}<span><strong>Gender:</strong> {{ patient_gender }}</span>{% endif %}
+            {% if los %}<span><strong>LOS:</strong> {{ los }} days</span>{% endif %}
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="error-message">{{ error }}</div>
+    {% endif %}
+
+    {% set read_only = read_only_example or read_only_admin %}
+    {% if review %}
+    <div class="review-status-row">
+        <span class="status-label">Review status:</span>
+        {% set review_completed = review.review_completed %}
+        {% set badge_id = "review-status-badge" %}
+        {% include "partials/review_status_badge.html" %}
+    </div>
+    {% if read_only_example %}
+    <div class="read-only-banner">
+        <strong>Example case:</strong> This encounter is read-only. Ratings, annotations, highlights, and comments cannot be changed.
+    </div>
+    {% endif %}
+    {% if read_only_admin %}
+    <div class="read-only-banner">
+        <strong>Admin view:</strong>
+        Viewing {{ review_owner.label if review_owner else 'assigned reviewer' }}{% if review_owner and review_owner.email %} ({{ review_owner.email }}){% endif %}. Changes are disabled in admin view.
+    </div>
+    {% endif %}
+    {% if show_dummy_banner %}
+    <div class="demo-banner">
+        <strong>Demo mode:</strong> This encounter is fabricated for demonstration. No PHI.
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <div class="tabs-container">
+        <div class="tab-buttons">
+            {% for tab_id in tab_order %}
+                {% if tab_id == "clinical_notes" %}
+                <button class="tab-btn {% if default_tab == 'clinical_notes' %}active{% endif %}"
+                        onclick="switchTab('clinical_notes')" id="tab-btn-clinical_notes">
+                    Clinical Notes ({{ clinical_notes|length }})
+                </button>
+                {% elif tab_id == "summary_a" %}
+                <button class="tab-btn {% if default_tab == 'summary_a' %}active{% endif %}"
+                        onclick="switchTab('summary_a')" id="tab-btn-summary_a">
+                    Summary A
+                    <span class="tab-check" id="tab-check-summary_a" aria-hidden="true">&#10003;</span>
+                </button>
+                {% elif tab_id == "summary_b" %}
+                <button class="tab-btn {% if default_tab == 'summary_b' %}active{% endif %}"
+                        onclick="switchTab('summary_b')" id="tab-btn-summary_b">
+                    Summary B
+                    <span class="tab-check" id="tab-check-summary_b" aria-hidden="true">&#10003;</span>
+                </button>
+                {% elif tab_id == "highlights_timeline" %}
+                <button class="tab-btn {% if default_tab == 'highlights_timeline' %}active{% endif %}"
+                        onclick="switchTab('highlights_timeline')" id="tab-btn-highlights_timeline">
+                    Highlights Timeline
+                </button>
+                {% elif tab_id == "incidental_findings" %}
+                <button class="tab-btn {% if default_tab == 'incidental_findings' %}active{% endif %}"
+                        onclick="switchTab('incidental_findings')" id="tab-btn-incidental_findings">
+                    Incidental Findings
+                    <span class="tab-check" id="tab-check-incidental_findings" aria-hidden="true">&#10003;</span>
+                </button>
+                {% elif tab_id == "overall_preference" %}
+                <button class="tab-btn {% if default_tab == 'overall_preference' %}active{% endif %}"
+                        onclick="switchTab('overall_preference')" id="tab-btn-overall_preference">
+                    Overall Preference
+                    <span class="tab-check" id="tab-check-overall_preference" aria-hidden="true">&#10003;</span>
+                </button>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Clinical Notes Tab -->
+        <div class="tab-content {% if default_tab == 'clinical_notes' %}active{% endif %}" id="tab-clinical_notes">
+            {% if clinical_notes %}
+            <div class="doc-navigation">
+                <div class="doc-navigation-row">
+                    <div class="note-dropdown" id="notes-dropdown">
+                        <button class="note-dropdown-toggle" id="notes-dropdown-toggle" type="button" onclick="toggleNoteDropdown()">
+                            <span class="note-dropdown-text">
+                                <span class="note-dropdown-title" id="notes-dropdown-title"></span>
+                                <span class="note-dropdown-meta" id="notes-dropdown-meta"></span>
+                            </span>
+                            <span class="note-dropdown-caret">▾</span>
+                        </button>
+                        <div class="note-dropdown-menu" id="notes-dropdown-menu" role="listbox">
+                            {% for note in clinical_notes %}
+                            <button type="button"
+                                    class="note-dropdown-item"
+                                    data-index="{{ loop.index0 }}"
+                                    data-filename="{{ note.file_name }}"
+                                    onclick="selectNoteFromDropdown({{ loop.index0 }})">
+                                <span class="note-item-info">
+                                    <span class="note-item-title">{{ note.note_type if note.note_type else note.display_name }}</span>
+                                    <span class="note-item-meta">
+                                        {% if note.relative_day is not none and note.publish_ts_raw %}
+                                            Day {{ note.relative_day }} · {{ note.publish_ts_raw }}
+                                        {% elif note.relative_day is not none %}
+                                            Day {{ note.relative_day }}
+                                        {% elif note.publish_ts_raw %}
+                                            {{ note.publish_ts_raw }}
+                                        {% endif %}
+                                    </span>
+                                </span>
+                                <span class="note-item-badges">
+                                    {% if note.cited_by_ai %}<span class="note-item-badge">Cited by AI</span>{% endif %}
+                                </span>
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="doc-navigation-row">
+                    <button class="nav-btn" onclick="prevNote()" id="prev-btn">Previous</button>
+                    <button class="nav-btn" onclick="nextNote()" id="next-btn">Next</button>
+                    <span class="doc-counter" id="note-counter">1 of {{ clinical_notes|length }}</span>
+                    <span class="day-indicator" id="day-indicator" style="display: none;"></span>
+                    <span class="publish-indicator" id="publish-indicator" style="display: none;"></span>
+                    <span class="cited-indicator" id="cited-indicator" style="display: none;">Cited by AI</span>
+
+                    {% if enable_highlights %}
+                    <button class="timeline-action-btn primary" onclick="openTimelineOverviewFromViewer()">
+                        View in timeline
+                    </button>
+                    {% endif %}
+
+                    <div class="view-toggle">
+                        <span class="view-toggle-label">View:</span>
+                        <button class="toggle-btn active" id="html-toggle" onclick="setViewMode('html')">HTML</button>
+                        <button class="toggle-btn" id="pdf-toggle" onclick="setViewMode('pdf')">PDF</button>
+                    </div>
+                </div>
+                <div class="doc-navigation-row note-search-row">
+                    <div class="note-search">
+                        <input class="note-search-input" id="note-search-input"
+                               type="text" placeholder="Search notes (exact match)"
+                               onkeydown="if (event.key === 'Enter') { runViewerSearch(); }">
+                        <button class="nav-btn" type="button" onclick="runViewerSearch()">Search</button>
+                        <button class="nav-btn" type="button" onclick="clearViewerSearch()">Clear</button>
+                    </div>
+                    <div class="note-search-status" id="note-search-status"></div>
+                    <div class="note-search-message" id="note-search-message"></div>
+                    <div class="search-nav" id="search-nav">
+                        <span>Find:</span>
+                        <span class="search-nav-term" id="search-nav-term"></span>
+                        <span class="search-nav-count" id="search-nav-count"></span>
+                        <button class="timeline-action-btn search-nav-btn" id="search-nav-prev" onclick="stepSearchMatch(-1)">Prev</button>
+                        <button class="timeline-action-btn search-nav-btn" id="search-nav-next" onclick="stepSearchMatch(1)">Next</button>
+                        <button class="search-nav-close" type="button" aria-label="Exit search mode" onclick="exitSearchModeFromViewer()">&times;</button>
+                    </div>
+                </div>
+                <div class="render-fallback-message" id="clinical-render-fallback" role="status" aria-live="polite" style="display: none;"></div>
+            </div>
+            <div class="doc-viewer" id="clinical-note-viewer">
+                <iframe id="clinical-note-iframe" title="Clinical Note"></iframe>
+            </div>
+            {% else %}
+            <div class="doc-viewer">
+                <div class="doc-placeholder">No clinical notes available for this encounter.</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Summary A Tab -->
+        <div class="tab-content {% if default_tab == 'summary_a' %}active{% endif %}" id="tab-summary_a">
+            {% if review %}
+            <div class="summary-gate" id="summary-gate-summary_a"{% if not enable_gating_logic %} style="display: none;"{% elif first_look == "AI" %} style="display: flex;"{% endif %}>
+                <h3>Before viewing Summary A</h3>
+                <p>Have you completed your ratings for Summary B? Once you proceed, you will not be able to edit Summary B ratings.</p>
+                <div class="summary-gate-actions">
+                    <button class="summary-gate-btn" type="button" id="summary-gate-btn-summary_a" onclick="unlockSummaryGate('summary_a')">
+                        I've completed ratings, proceed
+                    </button>
+                </div>
+                <p class="summary-gate-warning" id="summary-gate-warning-summary_a">
+                    Complete all Summary B ratings before proceeding.
+                </p>
+            </div>
+            {% endif %}
+            <div class="summary-content" id="summary-content-summary_a"{% if enable_gating_logic and first_look == "AI" %} style="display: none;"{% endif %}>
+                <div class="doc-navigation">
+                    <div class="part-selector" style="margin-bottom: 0;">
+                        {% for part in summary_a_parts %}
+                        <button class="part-btn {% if loop.index0 == 0 %}active{% endif %}"
+                                onclick="switchSummaryAPart({{ loop.index0 }})"
+                                id="part-btn-{{ loop.index0 }}"
+                                data-has-html="{{ 'true' if part.has_html else 'false' }}"
+                                data-has-pdf="{{ 'true' if part.has_pdf else 'false' }}"
+                                {% if not part.available %}disabled{% endif %}>
+                            {{ part.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <div class="view-toggle">
+                        <span class="view-toggle-label">View:</span>
+                        <button class="toggle-btn active" id="summary-a-html-toggle" onclick="setSummaryAViewMode('html')">HTML</button>
+                        <button class="toggle-btn" id="summary-a-pdf-toggle" onclick="setSummaryAViewMode('pdf')">PDF</button>
+                    </div>
+                </div>
+                <div class="render-fallback-message" id="summary-a-render-fallback" role="status" aria-live="polite" style="display: none;"></div>
+                <div class="summary-annotation-note">
+                    {% if read_only_example %}
+                    Annotations are read-only for this example case.
+                    {% elif read_only_admin %}
+                    Annotations are read-only in admin view.
+                    {% else %}
+                    Select text to create annotations.
+                    {% endif %}
+                </div>
+                <div class="doc-viewer" id="summary-a-viewer">
+                    {% if summary_a_parts and summary_a_parts[0].available %}
+                    <iframe id="summary-a-iframe" title="Summary A"></iframe>
+                    {% elif summary_a_parts %}
+                    <div class="doc-placeholder" id="summary-a-placeholder">{{ summary_a_parts[0].error or 'Summary A not available.' }}</div>
+                    {% else %}
+                    <div class="doc-placeholder">Summary A not available for this encounter.</div>
+                    {% endif %}
+                </div>
+                {% if review %}
+                <div class="ratings-section summary-ratings" id="summary-ratings-summary_a">
+                    <div class="ratings-section-header">
+                        <h2>Summary A Ratings</h2>
+                        <span class="ratings-locked-note" id="summary-lock-summary_a" style="display: none;">
+                            Ratings locked after proceeding to Summary B.
+                        </span>
+                    </div>
+                    {% include "partials/summary_a_ratings.html" %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Summary B Tab -->
+        <div class="tab-content {% if default_tab == 'summary_b' %}active{% endif %}" id="tab-summary_b">
+            {% if review %}
+            <div class="summary-gate" id="summary-gate-summary_b"{% if not enable_gating_logic %} style="display: none;"{% elif first_look != "AI" %} style="display: flex;"{% endif %}>
+                <h3>Before viewing Summary B</h3>
+                <p>Have you completed your ratings for Summary A? Once you proceed, you will not be able to edit Summary A ratings.</p>
+                <div class="summary-gate-actions">
+                    <button class="summary-gate-btn" type="button" id="summary-gate-btn-summary_b" onclick="unlockSummaryGate('summary_b')">
+                        I've completed ratings, proceed
+                    </button>
+                </div>
+                <p class="summary-gate-warning" id="summary-gate-warning-summary_b">
+                    Complete all Summary A ratings before proceeding.
+                </p>
+            </div>
+            {% endif %}
+            <div class="summary-content" id="summary-content-summary_b"{% if enable_gating_logic and first_look != "AI" %} style="display: none;"{% endif %}>
+                <div class="summary-b-container">
+                    <div class="summary-b-toolbar">
+                        {% if read_only_example %}
+                        <span style="font-size: 0.8rem; color: #6b7280;">Annotations are read-only for this example case.</span>
+                        {% elif read_only_admin %}
+                        <span style="font-size: 0.8rem; color: #6b7280;">Annotations are read-only in admin view.</span>
+                        {% else %}
+                        <span style="font-size: 0.8rem; color: #6b7280;">Select text to create annotations</span>
+                        {% endif %}
+                    </div>
+                    <div class="summary-b-viewer">
+                        {% if summary_b_text %}
+                        <iframe id="summary-b-iframe" src="/html/{{ encounter_number }}/summary_b{% if read_only_admin %}?review_doctor_id={{ review_doctor_id }}&admin_view=1{% endif %}" title="Summary B"></iframe>
+                        {% else %}
+                        <div class="doc-placeholder">Summary B not available for this encounter.</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if review %}
+                <div class="ratings-section summary-ratings" id="summary-ratings-summary_b">
+                    <div class="ratings-section-header">
+                        <h2>Summary B Ratings</h2>
+                        <span class="ratings-locked-note" id="summary-lock-summary_b" style="display: none;">
+                            Ratings locked after proceeding to Summary A.
+                        </span>
+                    </div>
+                    {% include "partials/summary_b_ratings.html" %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Incidental Findings Tab -->
+        <div class="tab-content {% if default_tab == 'incidental_findings' %}active{% endif %}" id="tab-incidental_findings">
+            <div class="summary-gate" id="tab-gate-incidental_findings"{% if not enable_gating_logic %} style="display: none;"{% endif %}>
+                <h3>Before completing incidental findings</h3>
+                <p>Finish ratings for both Summary A and Summary B to unlock incidental findings.</p>
+                <div class="summary-gate-actions">
+                    <button class="summary-gate-btn" type="button" id="tab-gate-btn-incidental_findings" onclick="unlockIncidentalGate()">
+                        I've completed both summaries, proceed
+                    </button>
+                </div>
+                <p class="summary-gate-warning" id="tab-gate-warning-incidental_findings">
+                    Complete all Summary A and Summary B ratings before proceeding.
+                </p>
+            </div>
+            <div class="summary-content" id="tab-content-incidental_findings">
+                {% if review %}
+                <div class="ratings-section">
+                    <div class="ratings-section-header">
+                        <h2>Incidental Findings</h2>
+                    </div>
+                    {% include "partials/incidental_findings.html" %}
+                </div>
+                {% else %}
+                <div class="doc-placeholder">Review details unavailable for this encounter.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Overall Preference Tab -->
+        <div class="tab-content {% if default_tab == 'overall_preference' %}active{% endif %}" id="tab-overall_preference">
+            <div class="summary-gate" id="tab-gate-overall_preference"{% if not enable_gating_logic %} style="display: none;"{% endif %}>
+                <h3>Before selecting overall preference</h3>
+                <p>Complete both summaries and the incidental findings section to unlock overall preference.</p>
+                <div class="summary-gate-actions">
+                    <button class="summary-gate-btn" type="button" id="tab-gate-btn-overall_preference" onclick="unlockPreferenceGate()">
+                        I've completed prior sections, proceed
+                    </button>
+                </div>
+                <p class="summary-gate-warning" id="tab-gate-warning-overall_preference">
+                    Complete incidental findings and both summary ratings before proceeding.
+                </p>
+            </div>
+            <div class="summary-content" id="tab-content-overall_preference">
+                {% if review %}
+                <div class="ratings-section">
+                    <div class="ratings-section-header">
+                        <h2>Overall Preference</h2>
+                    </div>
+                    {% include "partials/preference.html" %}
+                </div>
+                {% else %}
+                <div class="doc-placeholder">Review details unavailable for this encounter.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if enable_highlights %}
+        <!-- Highlights Timeline Tab -->
+        <div class="tab-content {% if default_tab == 'highlights_timeline' %}active{% endif %}" id="tab-highlights_timeline">
+            <div class="timeline-container">
+                <div class="timeline-toolbar">
+                    <div class="timeline-title">Highlights Timeline</div>
+                    <div class="timeline-toggle">
+                        <button class="timeline-toggle-btn" id="timeline-toggle-highlights"
+                                onclick="setTimelineShowAll(false)">
+                            Highlights only
+                        </button>
+                        <button class="timeline-toggle-btn active" id="timeline-toggle-all"
+                                onclick="setTimelineShowAll(true)">
+                            All notes
+                        </button>
+                    </div>
+                    <div class="timeline-day-selector">
+                        <button class="nav-btn" id="timeline-day-prev" onclick="stepTimelineDay(-1)">Previous day</button>
+                        <span class="timeline-day-label" id="timeline-day-label">Day</span>
+                        <button class="nav-btn" id="timeline-day-next" onclick="stepTimelineDay(1)">Next day</button>
+                    </div>
+                </div>
+
+                <div class="timeline-overview" id="timeline-overview">
+                    <div class="timeline-axis" id="timeline-axis"></div>
+                </div>
+
+                <div class="timeline-detail" id="timeline-detail">
+                    <div class="timeline-detail-header">
+                        <div>
+                            <div class="timeline-detail-title" id="timeline-detail-title"></div>
+                            <div class="timeline-detail-meta" id="timeline-detail-meta"></div>
+                        </div>
+                        <div class="timeline-actions">
+                            <button class="timeline-action-btn" id="timeline-note-prev" onclick="stepTimelineNote(-1)">Previous note</button>
+                            <button class="timeline-action-btn" id="timeline-note-next" onclick="stepTimelineNote(1)">Next note</button>
+                            <button class="timeline-action-btn" onclick="openTimelineOverview()">Back to timeline</button>
+                            <button class="timeline-action-btn primary" onclick="openClinicalNoteFromTimeline()">
+                                View in note viewer
+                            </button>
+                        </div>
+                    </div>
+                    <div class="timeline-events" id="timeline-events"></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+{% if enable_highlights %}
+<!-- Highlights Sidebar -->
+<div class="highlights-panel" id="highlights-panel">
+    <div class="highlights-panel-header">
+        <h3>My Highlights <span id="highlights-count" style="font-weight: normal; color: #6b7280;"></span></h3>
+        <button class="highlights-panel-close" onclick="toggleHighlightsPanel()">&times;</button>
+    </div>
+    <div class="highlights-panel-content" id="highlights-list">
+        <p class="highlights-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+            View HTML mode and select text in a clinical note to create a highlight.
+        </p>
+    </div>
+</div>
+
+<button class="highlights-toggle-btn" onclick="toggleHighlightsPanel()" id="highlights-toggle-btn">
+    <span id="highlights-badge" style="display: none; background: #ef4444; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 4px;"></span>
+    Highlights
+</button>
+{% endif %}
+
+<!-- Annotations Panel for Summary A -->
+<div class="annotations-panel" id="annotations-panel-summary_a">
+    <div class="annotations-panel-header">
+        <h3><span id="annotations-title-summary_a_text">Summary A Annotations</span> <span id="annotations-count-summary_a" style="font-weight: normal; color: #6b7280;"></span></h3>
+        <button class="annotations-panel-close" onclick="toggleAnnotationsPanel('summary_a')">&times;</button>
+    </div>
+    <div class="annotations-panel-content" id="annotations-list-summary_a">
+        <p class="annotations-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+            Select text in Summary A to create annotations.
+        </p>
+    </div>
+</div>
+
+<button class="annotations-toggle-btn" onclick="toggleAnnotationsPanel('summary_a')" id="annotations-toggle-btn-summary_a">
+    <span id="annotations-badge-summary_a" style="display: none; background: white; color: #dc2626; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 4px;"></span>
+    Summary A Annotations
+</button>
+
+<!-- Annotations Panel for Summary B -->
+<div class="annotations-panel" id="annotations-panel-summary_b">
+    <div class="annotations-panel-header">
+        <h3>Summary B Annotations <span id="annotations-count-summary_b" style="font-weight: normal; color: #6b7280;"></span></h3>
+        <button class="annotations-panel-close" onclick="toggleAnnotationsPanel('summary_b')">&times;</button>
+    </div>
+    <div class="annotations-panel-content" id="annotations-list-summary_b">
+        <p class="annotations-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+            Enable Annotation Mode and select text in Summary B to create annotations.
+        </p>
+    </div>
+</div>
+
+<button class="annotations-toggle-btn" onclick="toggleAnnotationsPanel('summary_b')" id="annotations-toggle-btn-summary_b">
+    <span id="annotations-badge-summary_b" style="display: none; background: white; color: #dc2626; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 4px;"></span>
+    Summary B Annotations
+</button>
+
+{% if enable_highlights %}
+<script src="/static/js/highlights.js?v=1"></script>
+{% endif %}
+<script src="/static/js/annotations.js"></script>
+<script>
+// Configuration
+const encounterNumber = {{ encounter_number }};
+const doctorId = {{ doctor_id }};
+const clinicalNotes = {{ clinical_notes | tojson }};
+const summaryAParts = {{ summary_a_parts | tojson }};
+const firstLook = "{{ first_look }}";
+const firstLookEnabled = {{ enable_first_look | tojson }};
+const highlightsEnabled = {{ enable_highlights | tojson }};
+const readOnlyExample = {{ read_only_example | tojson }};
+const readOnlyAdmin = {{ read_only_admin | tojson }};
+const readOnly = readOnlyExample || readOnlyAdmin;
+const gatingEnabled = {{ enable_gating_logic | tojson }};
+const reviewDoctorId = {{ review_doctor_id | tojson }};
+const adminQuery = readOnlyAdmin && reviewDoctorId ? `review_doctor_id=${encodeURIComponent(reviewDoctorId)}&admin_view=1` : '';
+const secondSummaryTab = firstLookEnabled && firstLook === "AI" ? "summary_a" : "summary_b";
+const firstSummaryTab = firstLookEnabled && firstLook === "AI" ? "summary_b" : "summary_a";
+const summaryGateKey = `summaryGateUnlocked:${encounterNumber}:${doctorId}`;
+let summaryGateUnlocked = gatingEnabled && sessionStorage.getItem(summaryGateKey) === "true";
+const incidentalGateKey = `incidentalGateUnlocked:${encounterNumber}:${doctorId}`;
+const preferenceGateKey = `preferenceGateUnlocked:${encounterNumber}:${doctorId}`;
+let incidentalGateUnlocked = gatingEnabled && sessionStorage.getItem(incidentalGateKey) === "true";
+let preferenceGateUnlocked = gatingEnabled && sessionStorage.getItem(preferenceGateKey) === "true";
+const summaryAPartKey = `summaryAPartIndex:${encounterNumber}:${doctorId}`;
+
+let currentNoteIndex = 0;
+let viewMode = 'html'; // 'html' or 'pdf' for clinical notes
+let summaryAViewMode = 'html'; // 'html' or 'pdf' for Summary A
+let currentSummaryAPartIndex = 0;
+let highlightsManager = null;
+let summaryAAnnotationsManager = null;
+let summaryBAnnotationsManager = null;
+let timelineMode = 'overview'; // 'overview' or 'note'
+let selectedTimelineNote = null;
+let timelineShowAllNotes = true;
+let timelineOverviewScrollLeft = 0;
+let timelineDetailScrollTop = 0;
+let lastTimelineNote = null;
+let timelinePendingCenterNote = null;
+let timelineViewerHighlightNote = null;
+let timelineSelectedDay = null;
+let timelineDayOptions = [];
+let timelineNoteSequence = [];
+let noteSearchQuery = null;
+let noteSearchActive = false;
+let noteSearchMatchedNotes = new Set();
+let noteSearchMatchCounts = {};
+let noteSearchUnsearchable = [];
+let noteSearchSequence = [];
+let noteSearchMatchOrder = [];
+let noteSearchTotalMatches = 0;
+const noteSearchCache = new Map();
+let pendingSearchQuery = null;
+let pendingSearchNote = null;
+let pendingSearchMatchIndex = 0;
+let activeSearchMatches = [];
+let activeSearchMatchIndex = 0;
+let activeSearchNote = null;
+let activeSearchQuery = null;
+let globalSearchMatchIndex = 0;
+let reviewGateUpdateTimer = null;
+const timelineShowAllKey = `timelineShowAll:${encounterNumber}:${doctorId}`;
+
+function withAdminParams(url) {
+    if (!adminQuery) {
+        return url;
+    }
+    return `${url}${url.includes('?') ? '&' : '?'}${adminQuery}`;
+}
+
+// Tab switching
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    document.getElementById('tab-btn-' + tabId).classList.add('active');
+}
+
+function syncHighlightsManagerTarget(tabId) {
+    if (!highlightsEnabled || !highlightsManager) return;
+
+    if (tabId === 'clinical_notes') {
+        if (viewMode !== 'html') return;
+        const iframe = document.getElementById('clinical-note-iframe');
+        const note = clinicalNotes[currentNoteIndex];
+        if (!iframe || !note || !note.has_html) return;
+        highlightsManager.attachToIframe(iframe, note.file_name);
+        return;
+    }
+
+    if (tabId === 'summary_a') {
+        return;
+    }
+}
+
+function syncSummaryAAnnotationsTarget(tabId) {
+    if (!summaryAAnnotationsManager) return;
+    if (tabId !== 'summary_a') {
+        return;
+    }
+    if (summaryAViewMode !== 'html') {
+        return;
+    }
+    const iframe = document.getElementById('summary-a-iframe');
+    const part = summaryAParts[currentSummaryAPartIndex];
+    if (!iframe || !part || !part.available || !part.has_html) {
+        return;
+    }
+    summaryAAnnotationsManager.attachToIframe(iframe);
+}
+
+function ensureSummaryALoaded() {
+    const iframe = document.getElementById('summary-a-iframe');
+    if (!iframe) {
+        return;
+    }
+    const src = iframe.getAttribute('src') || '';
+    if (!src || src === 'about:blank') {
+        loadSummaryAPart(currentSummaryAPartIndex);
+    }
+}
+
+function normalizeSearchQuery(query) {
+    return (query || '').trim().toLocaleLowerCase();
+}
+
+function isSearchableNote(note) {
+    return Boolean(note && note.has_html && !note.html_failed);
+}
+
+function getSearchMatchCount(noteFilename) {
+    return Number(noteSearchMatchCounts[noteFilename]) || 0;
+}
+
+function isSummaryGateOpen(summaryId) {
+    if (!gatingEnabled || readOnlyAdmin) {
+        return true;
+    }
+    if (summaryId !== secondSummaryTab) {
+        return true;
+    }
+    return summaryGateUnlocked;
+}
+
+function unlockSummaryGate(summaryId) {
+    if (summaryId !== secondSummaryTab) {
+        return;
+    }
+    if (!isSummaryComplete(firstSummaryTab)) {
+        updateReviewGateUI();
+        return;
+    }
+    summaryGateUnlocked = true;
+    sessionStorage.setItem(summaryGateKey, "true");
+    updateReviewGateUI();
+}
+
+function lockSummaryRatings(summaryId) {
+    const ratingsSection = document.getElementById(`summary-ratings-${summaryId}`);
+    if (!ratingsSection || ratingsSection.dataset.locked === "true") {
+        return;
+    }
+    ratingsSection.dataset.locked = "true";
+    ratingsSection.classList.add("ratings-locked");
+    ratingsSection.querySelectorAll('input[type="radio"]').forEach(input => {
+        input.disabled = true;
+    });
+    const note = document.getElementById(`summary-lock-${summaryId}`);
+    if (note) {
+        note.style.display = "inline";
+    }
+}
+
+function unlockSummaryRatings(summaryId) {
+    const ratingsSection = document.getElementById(`summary-ratings-${summaryId}`);
+    if (!ratingsSection) {
+        return;
+    }
+    ratingsSection.dataset.locked = "false";
+    ratingsSection.classList.remove("ratings-locked");
+    ratingsSection.querySelectorAll('input[type="radio"]').forEach(input => {
+        if (!input.closest('[data-read-only="true"]')) {
+            input.disabled = false;
+        }
+    });
+    const note = document.getElementById(`summary-lock-${summaryId}`);
+    if (note) {
+        note.style.display = "none";
+    }
+}
+
+function updateSummaryGateUI() {
+    if (summaryGateUnlocked && !isSummaryComplete(firstSummaryTab)) {
+        summaryGateUnlocked = false;
+        sessionStorage.removeItem(summaryGateKey);
+    }
+    const firstGate = document.getElementById(`summary-gate-${firstSummaryTab}`);
+    const firstContent = document.getElementById(`summary-content-${firstSummaryTab}`);
+    if (firstGate && firstContent) {
+        firstGate.style.display = "none";
+        firstContent.style.display = "flex";
+    }
+
+    const gate = document.getElementById(`summary-gate-${secondSummaryTab}`);
+    const content = document.getElementById(`summary-content-${secondSummaryTab}`);
+    if (gate && content) {
+        const canProceed = isSummaryComplete(firstSummaryTab);
+        const gateButton = document.getElementById(`summary-gate-btn-${secondSummaryTab}`);
+        const warning = document.getElementById(`summary-gate-warning-${secondSummaryTab}`);
+        if (gateButton) {
+            gateButton.disabled = !canProceed;
+        }
+        if (warning) {
+            warning.style.display = canProceed ? "none" : "block";
+        }
+        gate.style.display = summaryGateUnlocked ? "none" : "flex";
+        content.style.display = summaryGateUnlocked ? "flex" : "none";
+    }
+
+    if (summaryGateUnlocked) {
+        lockSummaryRatings(firstSummaryTab);
+    }
+
+    updateSummaryCompletionIndicators();
+    updateAnnotationsButtonVisibility();
+}
+
+function isSummaryComplete(summaryId) {
+    const container = document.getElementById(`summary-ratings-${summaryId}`);
+    if (!container) {
+        return false;
+    }
+    const questions = container.querySelectorAll(".rating-question");
+    if (!questions.length) {
+        return false;
+    }
+    return Array.from(questions).every(question =>
+        Boolean(question.querySelector('input[type="radio"]:checked'))
+    );
+}
+
+function updateSummaryCompletionIndicators() {
+    ["summary_a", "summary_b"].forEach(summaryId => {
+        const checkEl = document.getElementById(`tab-check-${summaryId}`);
+        if (!checkEl) {
+            return;
+        }
+        const complete = isSummaryComplete(summaryId);
+        checkEl.classList.toggle("visible", complete);
+    });
+    const incidentalCheck = document.getElementById("tab-check-incidental_findings");
+    if (incidentalCheck) {
+        incidentalCheck.classList.toggle("visible", canAccessIncidental() && isIncidentalComplete());
+    }
+    const preferenceCheck = document.getElementById("tab-check-overall_preference");
+    if (preferenceCheck) {
+        preferenceCheck.classList.toggle("visible", canAccessPreference() && isPreferenceComplete());
+    }
+}
+
+function isIncidentalComplete() {
+    const container = document.getElementById("tab-incidental_findings");
+    if (!container) {
+        return false;
+    }
+    const items = container.querySelectorAll(".incidental-finding-item");
+    if (!items.length) {
+        return true;
+    }
+    return Array.from(items).every(item => {
+        const questions = item.querySelectorAll(".finding-question");
+        return Array.from(questions).every(question =>
+            Boolean(question.querySelector('input[type="radio"]:checked'))
+        );
+    });
+}
+
+function isPreferenceComplete() {
+    const container = document.getElementById("tab-overall_preference");
+    if (!container) {
+        return false;
+    }
+    const form = container.querySelector(".preference-form");
+    if (!form) {
+        return false;
+    }
+    return Boolean(form.querySelector('input[type="radio"]:checked'));
+}
+
+function canAccessIncidental() {
+    if (!gatingEnabled) {
+        return true;
+    }
+    return isSummaryComplete("summary_a") && isSummaryComplete("summary_b");
+}
+
+function canAccessPreference() {
+    if (!gatingEnabled) {
+        return true;
+    }
+    return canAccessIncidental() && isIncidentalComplete();
+}
+
+function unlockIncidentalGate() {
+    if (!canAccessIncidental()) {
+        updateReviewGateUI();
+        return;
+    }
+    incidentalGateUnlocked = true;
+    sessionStorage.setItem(incidentalGateKey, "true");
+    updateReviewGateUI();
+}
+
+function unlockPreferenceGate() {
+    if (!canAccessPreference()) {
+        updateReviewGateUI();
+        return;
+    }
+    preferenceGateUnlocked = true;
+    sessionStorage.setItem(preferenceGateKey, "true");
+    updateReviewGateUI();
+}
+
+function updateIncidentalGateUI() {
+    const gate = document.getElementById("tab-gate-incidental_findings");
+    const content = document.getElementById("tab-content-incidental_findings");
+    if (!gate || !content) {
+        return;
+    }
+    const canProceed = canAccessIncidental();
+    if (!canProceed) {
+        incidentalGateUnlocked = false;
+        sessionStorage.removeItem(incidentalGateKey);
+    }
+    const gateButton = document.getElementById("tab-gate-btn-incidental_findings");
+    const warning = document.getElementById("tab-gate-warning-incidental_findings");
+    if (gateButton) {
+        gateButton.disabled = !canProceed;
+    }
+    if (warning) {
+        warning.style.display = canProceed ? "none" : "block";
+    }
+    const showGate = !(incidentalGateUnlocked && canProceed);
+    gate.style.display = showGate ? "flex" : "none";
+    content.style.display = showGate ? "none" : "flex";
+}
+
+function updatePreferenceGateUI() {
+    const gate = document.getElementById("tab-gate-overall_preference");
+    const content = document.getElementById("tab-content-overall_preference");
+    if (!gate || !content) {
+        return;
+    }
+    const canProceed = canAccessPreference();
+    if (!canProceed) {
+        preferenceGateUnlocked = false;
+        sessionStorage.removeItem(preferenceGateKey);
+    }
+    const gateButton = document.getElementById("tab-gate-btn-overall_preference");
+    const warning = document.getElementById("tab-gate-warning-overall_preference");
+    if (gateButton) {
+        gateButton.disabled = !canProceed;
+    }
+    if (warning) {
+        warning.style.display = canProceed ? "none" : "block";
+    }
+    const showGate = !(preferenceGateUnlocked && canProceed);
+    gate.style.display = showGate ? "flex" : "none";
+    content.style.display = showGate ? "none" : "flex";
+}
+
+function updateReviewGateUI() {
+    if (!gatingEnabled) {
+        summaryGateUnlocked = true;
+        incidentalGateUnlocked = true;
+        preferenceGateUnlocked = true;
+        const gateIds = [
+            `summary-gate-${firstSummaryTab}`,
+            `summary-gate-${secondSummaryTab}`,
+            "tab-gate-incidental_findings",
+            "tab-gate-overall_preference"
+        ];
+        gateIds.forEach((gateId) => {
+            const gate = document.getElementById(gateId);
+            if (gate) {
+                gate.style.display = "none";
+            }
+        });
+        const contentIds = [
+            `summary-content-${firstSummaryTab}`,
+            `summary-content-${secondSummaryTab}`,
+            "tab-content-incidental_findings",
+            "tab-content-overall_preference"
+        ];
+        contentIds.forEach((contentId) => {
+            const content = document.getElementById(contentId);
+            if (content) {
+                content.style.display = "flex";
+            }
+        });
+        if (!readOnly) {
+            unlockSummaryRatings("summary_a");
+            unlockSummaryRatings("summary_b");
+        }
+        updateSummaryCompletionIndicators();
+        updateAnnotationsButtonVisibility();
+        return;
+    }
+    if (readOnlyAdmin) {
+        summaryGateUnlocked = true;
+        incidentalGateUnlocked = true;
+        preferenceGateUnlocked = true;
+        const gateIds = [
+            `summary-gate-${firstSummaryTab}`,
+            `summary-gate-${secondSummaryTab}`,
+            "tab-gate-incidental_findings",
+            "tab-gate-overall_preference"
+        ];
+        gateIds.forEach((gateId) => {
+            const gate = document.getElementById(gateId);
+            if (gate) {
+                gate.style.display = "none";
+            }
+        });
+        const contentIds = [
+            `summary-content-${firstSummaryTab}`,
+            `summary-content-${secondSummaryTab}`,
+            "tab-content-incidental_findings",
+            "tab-content-overall_preference"
+        ];
+        contentIds.forEach((contentId) => {
+            const content = document.getElementById(contentId);
+            if (content) {
+                content.style.display = "flex";
+            }
+        });
+        updateSummaryCompletionIndicators();
+        updateAnnotationsButtonVisibility();
+        return;
+    }
+    updateSummaryGateUI();
+    updateIncidentalGateUI();
+    updatePreferenceGateUI();
+}
+
+function scheduleReviewGateUpdate() {
+    if (reviewGateUpdateTimer) {
+        window.clearTimeout(reviewGateUpdateTimer);
+    }
+    reviewGateUpdateTimer = window.setTimeout(() => {
+        reviewGateUpdateTimer = null;
+        updateReviewGateUI();
+    }, 80);
+}
+
+function setNoteSearchMessage(message) {
+    const messageEl = document.getElementById('note-search-message');
+    if (!messageEl) return;
+    messageEl.textContent = message || '';
+}
+
+function updateNoteSearchStatus() {
+    const statusEl = document.getElementById('note-search-status');
+    if (!statusEl) return;
+
+    if (!noteSearchActive || !noteSearchQuery) {
+        statusEl.textContent = '';
+        setNoteSearchMessage('');
+        return;
+    }
+
+    const matchCount = noteSearchSequence.length;
+    const noteLabel = matchCount === 1 ? 'note' : 'notes';
+    statusEl.textContent = `Search: "${noteSearchQuery}" - ${matchCount} ${noteLabel}`;
+
+    if (!matchCount) {
+        setNoteSearchMessage(`No notes matched "${noteSearchQuery}".`);
+        return;
+    }
+
+    if (noteSearchUnsearchable.length > 0) {
+        const skipped = noteSearchUnsearchable.length;
+        const skippedLabel = skipped === 1 ? 'note' : 'notes';
+        setNoteSearchMessage(`${skipped} ${skippedLabel} skipped (markdown unavailable).`);
+    } else {
+        setNoteSearchMessage('');
+    }
+}
+
+function shouldShowSearchNavigator() {
+    const nav = document.getElementById('search-nav');
+    if (!nav) return false;
+    const clinicalTabActive = document.getElementById('tab-clinical_notes').classList.contains('active');
+    if (!clinicalTabActive) return false;
+    if (!noteSearchActive || !noteSearchQuery) return false;
+    if (noteSearchTotalMatches <= 0) return false;
+    if (viewMode !== 'html') return false;
+    const currentNote = clinicalNotes[currentNoteIndex];
+    return isSearchableNote(currentNote);
+}
+
+function updateSearchNavigator(totalMatches, currentIndex, query) {
+    const nav = document.getElementById('search-nav');
+    if (!nav) return;
+    const termEl = document.getElementById('search-nav-term');
+    const countEl = document.getElementById('search-nav-count');
+    const prevBtn = document.getElementById('search-nav-prev');
+    const nextBtn = document.getElementById('search-nav-next');
+
+    const shouldShow = shouldShowSearchNavigator();
+    nav.style.display = shouldShow ? 'inline-flex' : 'none';
+    if (!shouldShow) {
+        return;
+    }
+
+    termEl.textContent = `"${query}"`;
+    if (totalMatches > 0) {
+        countEl.textContent = `${currentIndex} of ${totalMatches}`;
+    } else {
+        countEl.textContent = '0 of 0';
+    }
+
+    const disabled = totalMatches <= 1;
+    prevBtn.disabled = disabled;
+    nextBtn.disabled = disabled;
+}
+
+function clearSearchNavigatorState() {
+    activeSearchMatches = [];
+    activeSearchMatchIndex = 0;
+    activeSearchNote = null;
+    activeSearchQuery = null;
+    globalSearchMatchIndex = 0;
+    pendingSearchMatchIndex = 0;
+    updateSearchNavigator(noteSearchTotalMatches, globalSearchMatchIndex + 1, noteSearchQuery || '');
+}
+
+function buildNoteSearchSequence() {
+    noteSearchSequence = clinicalNotes
+        .filter(note => noteSearchMatchedNotes.has(note.file_name) && isSearchableNote(note))
+        .map(note => note.file_name);
+    noteSearchMatchOrder = noteSearchSequence
+        .map(filename => ({ filename: filename, count: getSearchMatchCount(filename) }))
+        .filter(entry => entry.count > 0);
+    noteSearchTotalMatches = noteSearchMatchOrder.reduce((sum, entry) => sum + entry.count, 0);
+}
+
+function refreshSearchAfterRenderFailure(failedFilename) {
+    if (!noteSearchActive) return;
+    buildNoteSearchSequence();
+    updateNoteSearchStatus();
+    if (failedFilename && pendingSearchNote === failedFilename) {
+        pendingSearchQuery = null;
+        pendingSearchNote = null;
+        pendingSearchMatchIndex = 0;
+    }
+    if (noteSearchTotalMatches <= 0) {
+        globalSearchMatchIndex = 0;
+    } else if (globalSearchMatchIndex >= noteSearchTotalMatches) {
+        globalSearchMatchIndex = noteSearchTotalMatches - 1;
+    }
+    updateSearchNavigator(noteSearchTotalMatches, noteSearchTotalMatches ? globalSearchMatchIndex + 1 : 0, noteSearchQuery || '');
+}
+
+function getGlobalSearchIndex(noteFilename, localIndex) {
+    if (!noteFilename) return 0;
+    let offset = 0;
+    for (const entry of noteSearchMatchOrder) {
+        if (entry.filename === noteFilename) {
+            const safeIndex = Math.max(0, Math.min(localIndex, entry.count - 1));
+            return offset + safeIndex;
+        }
+        offset += entry.count;
+    }
+    return 0;
+}
+
+function getSearchMatchLocation(globalIndex) {
+    if (!noteSearchMatchOrder.length || noteSearchTotalMatches <= 0) return null;
+    let remaining = Math.max(0, Math.min(globalIndex, noteSearchTotalMatches - 1));
+    for (const entry of noteSearchMatchOrder) {
+        if (remaining < entry.count) {
+            return { filename: entry.filename, localIndex: remaining };
+        }
+        remaining -= entry.count;
+    }
+    return null;
+}
+
+function setPendingSearchTarget(noteFilename, matchIndex = 0) {
+    if (!noteSearchActive || !noteSearchQuery || !noteFilename) {
+        pendingSearchQuery = null;
+        pendingSearchNote = null;
+        pendingSearchMatchIndex = 0;
+        return;
+    }
+    const note = clinicalNotes.find(item => item.file_name === noteFilename);
+    if (!isSearchableNote(note)) {
+        pendingSearchQuery = null;
+        pendingSearchNote = null;
+        pendingSearchMatchIndex = 0;
+        return;
+    }
+    const matchCount = getSearchMatchCount(noteFilename);
+    if (matchCount <= 0) {
+        pendingSearchQuery = null;
+        pendingSearchNote = null;
+        pendingSearchMatchIndex = 0;
+        return;
+    }
+    pendingSearchQuery = noteSearchQuery;
+    pendingSearchNote = noteFilename;
+    pendingSearchMatchIndex = Math.max(0, Math.min(matchIndex, matchCount - 1));
+}
+
+function applyNoteSearchResults(query, payload) {
+    noteSearchActive = true;
+    noteSearchQuery = query;
+    noteSearchMatchedNotes = new Set(payload.matched_notes || []);
+    noteSearchMatchCounts = payload.match_count_by_note || {};
+    noteSearchUnsearchable = payload.unsearchable_notes || [];
+    buildNoteSearchSequence();
+    globalSearchMatchIndex = 0;
+    clearSearchNavigatorState();
+    updateNoteSearchStatus();
+    updateNoteDropdownSelection();
+
+    if (noteSearchSequence.length > 0) {
+        const currentNote = clinicalNotes[currentNoteIndex];
+        const currentIsMatch = currentNote && noteSearchSequence.includes(currentNote.file_name);
+        if (!currentIsMatch) {
+            const firstMatchIndex = clinicalNotes.findIndex(note => note.file_name === noteSearchSequence[0]);
+            if (firstMatchIndex !== -1) {
+                currentNoteIndex = firstMatchIndex;
+            }
+        }
+        const activeNote = clinicalNotes[currentNoteIndex];
+        if (activeNote) {
+            setPendingSearchTarget(activeNote.file_name, 0);
+        }
+    } else {
+        pendingSearchQuery = null;
+        pendingSearchNote = null;
+        pendingSearchMatchIndex = 0;
+        clearSearchHighlightInCurrentNote();
+    }
+
+    updateNoteDisplay();
+}
+
+function runViewerSearch() {
+    const input = document.getElementById('note-search-input');
+    if (!input) return;
+    const rawQuery = input.value || '';
+    const query = rawQuery.trim();
+    if (!query) {
+        clearViewerSearch();
+        return;
+    }
+
+    const normalized = normalizeSearchQuery(query);
+    const cached = noteSearchCache.get(normalized);
+    if (cached) {
+        applyNoteSearchResults(query, cached);
+        return;
+    }
+
+    setNoteSearchMessage('Searching...');
+
+    fetch(withAdminParams(`/api/note-search?encounter_number=${encounterNumber}&q=${encodeURIComponent(query)}`))
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Search failed');
+            }
+            return response.json();
+        })
+        .then(data => {
+            cacheNoteSearchResult(normalized, data);
+            applyNoteSearchResults(query, data);
+        })
+        .catch(error => {
+            console.error('Search error:', error);
+            setNoteSearchMessage('Search failed. Try again.');
+        });
+}
+
+function cacheNoteSearchResult(normalizedQuery, data) {
+    noteSearchCache.set(normalizedQuery, data);
+    if (noteSearchCache.size > 25) {
+        const firstKey = noteSearchCache.keys().next().value;
+        noteSearchCache.delete(firstKey);
+    }
+}
+
+function clearViewerSearch() {
+    const input = document.getElementById('note-search-input');
+    if (input) {
+        input.value = '';
+    }
+    noteSearchActive = false;
+    noteSearchQuery = null;
+    noteSearchMatchedNotes = new Set();
+    noteSearchMatchCounts = {};
+    noteSearchUnsearchable = [];
+    noteSearchSequence = [];
+    noteSearchMatchOrder = [];
+    noteSearchTotalMatches = 0;
+    pendingSearchQuery = null;
+    pendingSearchNote = null;
+    pendingSearchMatchIndex = 0;
+    globalSearchMatchIndex = 0;
+    clearSearchNavigatorState();
+    updateNoteSearchStatus();
+    clearSearchHighlightInCurrentNote();
+    updateNoteDropdownSelection();
+    updateNoteDisplay();
+}
+
+function exitSearchModeFromViewer() {
+    clearViewerSearch();
+}
+
+function setTimelineShowAll(showAll, persist = true) {
+    timelineShowAllNotes = showAll;
+    document.getElementById('timeline-toggle-highlights').classList.toggle('active', !showAll);
+    document.getElementById('timeline-toggle-all').classList.toggle('active', showAll);
+    if (persist) {
+        sessionStorage.setItem(timelineShowAllKey, showAll ? 'all' : 'highlights');
+    }
+    renderHighlightsTimeline(highlightsManager ? highlightsManager.highlights : []);
+}
+
+function stepTimelineDay(direction) {
+    if (!timelineDayOptions.length) return;
+    const currentIndex = timelineDayOptions.findIndex(option => option.key === timelineSelectedDay);
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= timelineDayOptions.length) return;
+    timelineSelectedDay = timelineDayOptions[nextIndex].key;
+    renderHighlightsTimeline(highlightsManager ? highlightsManager.highlights : []);
+}
+
+function stepTimelineNote(direction) {
+    if (!timelineNoteSequence.length || !selectedTimelineNote) return;
+    const currentIndex = timelineNoteSequence.indexOf(selectedTimelineNote);
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= timelineNoteSequence.length) return;
+    selectedTimelineNote = timelineNoteSequence[nextIndex];
+    renderHighlightsTimeline(highlightsManager ? highlightsManager.highlights : []);
+}
+
+function openTimelineZoom(noteFilename) {
+    if (!noteFilename) return;
+    const axisEl = document.getElementById('timeline-axis');
+    if (axisEl) {
+        timelineOverviewScrollLeft = axisEl.scrollLeft;
+    }
+    const note = clinicalNotes.find(n => n.file_name === noteFilename);
+    if (note) {
+        timelineSelectedDay = getNoteDayKey(note);
+    }
+    selectedTimelineNote = noteFilename;
+    timelineMode = 'note';
+    switchTab('highlights_timeline');
+    renderHighlightsTimeline(highlightsManager ? highlightsManager.highlights : []);
+}
+
+function openTimelineZoomFromViewer() {
+    const note = clinicalNotes[currentNoteIndex];
+    if (!note) return;
+    openTimelineZoom(note.file_name);
+}
+
+function openTimelineOverviewFromViewer() {
+    const note = clinicalNotes[currentNoteIndex];
+    if (!note) return;
+    timelineViewerHighlightNote = note.file_name;
+    timelinePendingCenterNote = note.file_name;
+    timelineSelectedDay = getNoteDayKey(note);
+    timelineMode = 'overview';
+    selectedTimelineNote = null;
+    switchTab('highlights_timeline');
+}
+
+function openTimelineOverview() {
+    const eventsEl = document.getElementById('timeline-events');
+    if (eventsEl) {
+        timelineDetailScrollTop = eventsEl.scrollTop;
+    }
+    lastTimelineNote = selectedTimelineNote;
+    if (selectedTimelineNote) {
+        const note = clinicalNotes.find(n => n.file_name === selectedTimelineNote);
+        if (note) {
+            timelineSelectedDay = getNoteDayKey(note);
+        }
+    }
+    timelineMode = 'overview';
+    selectedTimelineNote = null;
+    renderHighlightsTimeline(highlightsManager ? highlightsManager.highlights : []);
+}
+
+function handleTimelineNodeClick(noteFilename) {
+    if (!noteFilename) return;
+    openTimelineZoom(noteFilename);
+}
+
+function openClinicalNoteViewer(noteFilename) {
+    const noteIndex = clinicalNotes.findIndex(n => n.file_name === noteFilename);
+    if (noteIndex === -1) return;
+    const note = clinicalNotes[noteIndex];
+    currentNoteIndex = noteIndex;
+    switchTab('clinical_notes');
+    updateNoteDisplay();
+    if (note && note.has_html) {
+        setViewMode('html');
+    } else if (note && note.has_pdf) {
+        pendingSearchNote = null;
+        setViewMode('pdf');
+    }
+}
+
+function openClinicalNoteFromTimeline() {
+    if (!selectedTimelineNote) return;
+    openClinicalNoteViewer(selectedTimelineNote);
+}
+
+// View mode toggle (HTML/PDF)
+function setViewMode(mode) {
+    viewMode = mode;
+    document.getElementById('html-toggle').classList.toggle('active', mode === 'html');
+    document.getElementById('pdf-toggle').classList.toggle('active', mode === 'pdf');
+    loadNote(currentNoteIndex);
+    syncHighlightsManagerTarget('clinical_notes');
+    updateSearchNavigator(noteSearchTotalMatches, globalSearchMatchIndex + 1, noteSearchQuery || activeSearchQuery || '');
+}
+
+function setRenderFallbackMessage(elementId, message) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (message) {
+        el.textContent = message;
+        el.style.display = 'block';
+    } else {
+        el.textContent = '';
+        el.style.display = 'none';
+    }
+}
+
+function updateClinicalRenderFallback(note) {
+    if (!note || !note.html_failed) {
+        setRenderFallbackMessage('clinical-render-fallback', '');
+        return;
+    }
+    const name = getNoteDisplayName(note) || note.file_name || 'This note';
+    setRenderFallbackMessage('clinical-render-fallback', `${name} cannot be rendered to HTML. PDF view is shown instead.`);
+}
+
+// Clinical notes navigation
+function getActiveNoteSequence() {
+    if (noteSearchActive) {
+        return noteSearchSequence;
+    }
+    return clinicalNotes.map(note => note.file_name);
+}
+
+function getActiveNoteIndex(sequence, filename) {
+    if (!sequence.length || !filename) {
+        return -1;
+    }
+    return sequence.indexOf(filename);
+}
+
+function updateNoteDisplay() {
+    const counter = document.getElementById('note-counter');
+    const citedIndicator = document.getElementById('cited-indicator');
+    const dayIndicator = document.getElementById('day-indicator');
+    const publishIndicator = document.getElementById('publish-indicator');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+
+    if (clinicalNotes.length === 0) return;
+    const currentNote = clinicalNotes[currentNoteIndex];
+    if (clinicalNotes.length > 0) {
+        counter.textContent = `${currentNoteIndex + 1} of ${clinicalNotes.length}`;
+    }
+
+    citedIndicator.style.display = currentNote && currentNote.cited_by_ai ? 'inline-block' : 'none';
+
+    // Update day indicator
+    if (currentNote && currentNote.relative_day !== null && currentNote.relative_day !== undefined) {
+        dayIndicator.textContent = `Day ${currentNote.relative_day}`;
+        dayIndicator.style.display = 'inline-block';
+    } else {
+        dayIndicator.style.display = 'none';
+    }
+
+    if (currentNote && currentNote.publish_ts_raw) {
+        publishIndicator.textContent = `Published: ${currentNote.publish_ts_raw}`;
+        publishIndicator.style.display = 'inline-block';
+    } else {
+        publishIndicator.style.display = 'none';
+    }
+
+    prevBtn.disabled = currentNoteIndex === 0;
+    nextBtn.disabled = currentNoteIndex === clinicalNotes.length - 1;
+
+    // Update view toggle availability
+    const htmlToggle = document.getElementById('html-toggle');
+    const pdfToggle = document.getElementById('pdf-toggle');
+    if (currentNote) {
+        htmlToggle.disabled = !currentNote.has_html;
+        pdfToggle.disabled = !currentNote.has_pdf;
+
+        // Auto-switch if current mode not available
+        if (viewMode === 'html' && !currentNote.has_html && currentNote.has_pdf) {
+            setViewMode('pdf');
+        } else if (viewMode === 'pdf' && !currentNote.has_pdf && currentNote.has_html) {
+            setViewMode('html');
+        }
+    }
+
+    if (noteSearchActive && noteSearchQuery && currentNote && isSearchableNote(currentNote)) {
+        if (pendingSearchNote !== currentNote.file_name) {
+            setPendingSearchTarget(currentNote.file_name, 0);
+        }
+    }
+
+    updateClinicalRenderFallback(currentNote);
+    loadNote(currentNoteIndex);
+    if (highlightsEnabled && highlightsManager) {
+        renderHighlightsList(highlightsManager.highlights);
+    }
+    updateSearchNavigator(noteSearchTotalMatches, globalSearchMatchIndex + 1, noteSearchQuery || activeSearchQuery || '');
+    updateNoteDropdownSelection();
+}
+
+function loadNote(index) {
+    if (index < 0 || index >= clinicalNotes.length) return;
+
+    const note = clinicalNotes[index];
+    const iframe = document.getElementById('clinical-note-iframe');
+    if (!iframe) return;
+
+    const baseName = note.file_name.replace('.rtf', '');
+
+    if (viewMode === 'html' && note.has_html) {
+        // Ensure the highlights manager targets the clinical notes iframe when it's in use.
+        if (highlightsEnabled && highlightsManager) {
+            highlightsManager.attachToIframe(iframe, note.file_name);
+        }
+        iframe.src = withAdminParams(`/html/${encounterNumber}/clinical_note/${encodeURIComponent(baseName)}`);
+        queueSearchHighlight(iframe, note);
+    } else if (note.has_pdf) {
+        iframe.src = withAdminParams(`/pdf/${encounterNumber}/clinical_note/${encodeURIComponent(baseName)}`);
+    } else {
+        iframe.src = 'about:blank';
+    }
+}
+
+function clearSearchHighlightsInDocument(doc) {
+    if (!doc) return;
+    doc.querySelectorAll('.search-hit').forEach((el) => {
+        const parent = el.parentNode;
+        if (!parent) return;
+        while (el.firstChild) {
+            parent.insertBefore(el.firstChild, el);
+        }
+        parent.removeChild(el);
+    });
+    const container = doc.querySelector('.document-content') || doc.body;
+    if (container) {
+        container.normalize();
+    }
+}
+
+function clearSearchHighlightInCurrentNote() {
+    const iframe = document.getElementById('clinical-note-iframe');
+    if (!iframe || !iframe.contentDocument) return;
+    clearSearchHighlightsInDocument(iframe.contentDocument);
+}
+
+function applySearchHighlightInIframe(iframe, query, noteFilename, targetIndex = 0) {
+    if (!iframe || !iframe.contentDocument) return false;
+    const doc = iframe.contentDocument;
+    const container = doc.querySelector('.document-content') || doc.body;
+    if (!container) return false;
+
+    clearSearchHighlightsInDocument(doc);
+
+    const normalizedQuery = normalizeSearchQuery(query);
+    if (!normalizedQuery) return false;
+
+    const fullText = container.textContent || '';
+    const normalizedText = fullText.toLocaleLowerCase();
+    const matches = [];
+    let searchIndex = 0;
+    while (true) {
+        const foundIndex = normalizedText.indexOf(normalizedQuery, searchIndex);
+        if (foundIndex === -1) break;
+        matches.push({ start: foundIndex, end: foundIndex + normalizedQuery.length });
+        searchIndex = foundIndex + normalizedQuery.length;
+    }
+
+    activeSearchMatches = matches;
+    activeSearchMatchIndex = 0;
+    activeSearchNote = noteFilename;
+    activeSearchQuery = query;
+
+    if (!matches.length) {
+        updateSearchNavigator(noteSearchTotalMatches, globalSearchMatchIndex + 1, query);
+        return false;
+    }
+
+    const safeIndex = Math.max(0, Math.min(targetIndex, matches.length - 1));
+    return applySearchHighlightAtMatch(iframe, matches, safeIndex, noteFilename);
+}
+
+function applySearchHighlightAtMatch(iframe, matches, matchIndex, noteFilename) {
+    if (!iframe || !iframe.contentDocument) return false;
+    const doc = iframe.contentDocument;
+    const container = doc.querySelector('.document-content') || doc.body;
+    if (!container) return false;
+
+    clearSearchHighlightsInDocument(doc);
+
+    const match = matches[matchIndex];
+    if (!match) return false;
+
+    const textNodes = [];
+    const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    let currentOffset = 0;
+    let node;
+
+    while ((node = walker.nextNode())) {
+        const length = (node.textContent || '').length;
+        if (!length) continue;
+        textNodes.push({
+            node: node,
+            start: currentOffset,
+            end: currentOffset + length
+        });
+        currentOffset += length;
+    }
+
+    const nodesToHighlight = textNodes.filter(n => match.start < n.end && match.end > n.start);
+    let firstSpan = null;
+
+    for (let i = nodesToHighlight.length - 1; i >= 0; i--) {
+        const nodeInfo = nodesToHighlight[i];
+        const nodeLength = nodeInfo.node.textContent.length;
+        const highlightStartInNode = Math.max(0, match.start - nodeInfo.start);
+        const highlightEndInNode = Math.min(nodeLength, match.end - nodeInfo.start);
+
+        if (highlightStartInNode < highlightEndInNode) {
+            const range = doc.createRange();
+            range.setStart(nodeInfo.node, highlightStartInNode);
+            range.setEnd(nodeInfo.node, highlightEndInNode);
+
+            const span = doc.createElement('span');
+            span.className = 'search-hit';
+            try {
+                range.surroundContents(span);
+            } catch (e) {
+                try {
+                    const fragment = range.extractContents();
+                    span.appendChild(fragment);
+                    range.insertNode(span);
+                } catch (e2) {
+                    console.warn('Could not apply search highlight:', e2);
+                }
+            }
+            firstSpan = span;
+        }
+    }
+
+    if (firstSpan) {
+        firstSpan.classList.add('search-hit-pulse');
+        firstSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstSpan.style.transition = 'outline 0.2s';
+        firstSpan.style.outline = '3px solid #0f766e';
+        window.setTimeout(() => {
+            firstSpan.classList.remove('search-hit-pulse');
+            firstSpan.style.outline = 'none';
+        }, 1800);
+    }
+
+    activeSearchMatchIndex = matchIndex;
+    globalSearchMatchIndex = getGlobalSearchIndex(noteFilename || activeSearchNote, matchIndex);
+    updateSearchNavigator(noteSearchTotalMatches, globalSearchMatchIndex + 1, activeSearchQuery || '');
+    return true;
+}
+
+function stepSearchMatch(direction) {
+    if (!noteSearchActive || !noteSearchQuery || noteSearchTotalMatches <= 0) return;
+    const total = noteSearchTotalMatches;
+    const nextGlobalIndex = (globalSearchMatchIndex + direction + total) % total;
+    const target = getSearchMatchLocation(nextGlobalIndex);
+    if (!target) return;
+
+    const targetNoteIndex = clinicalNotes.findIndex(note => note.file_name === target.filename);
+    if (targetNoteIndex === -1) return;
+
+    const iframe = document.getElementById('clinical-note-iframe');
+    if (targetNoteIndex === currentNoteIndex && iframe && iframe.contentDocument && activeSearchMatches.length) {
+        applySearchHighlightAtMatch(iframe, activeSearchMatches, target.localIndex, target.filename);
+        return;
+    }
+
+    currentNoteIndex = targetNoteIndex;
+    setPendingSearchTarget(target.filename, target.localIndex);
+    if (viewMode !== 'html') {
+        setViewMode('html');
+    }
+    updateNoteDisplay();
+}
+
+function getIframePath(url) {
+    if (!url) return '';
+    try {
+        return new URL(url, window.location.origin).pathname;
+    } catch (e) {
+        return '';
+    }
+}
+
+function queueSearchHighlight(iframe, note) {
+    if (!pendingSearchQuery || !pendingSearchNote || note.file_name !== pendingSearchNote) {
+        return;
+    }
+
+    const expectedPath = getIframePath(iframe.src);
+    let attemptsLeft = 10;
+
+    const attemptApply = () => {
+        if (viewMode !== 'html') return;
+        const doc = iframe.contentDocument;
+        if (!doc) {
+            attemptsLeft -= 1;
+            if (attemptsLeft > 0) {
+                window.setTimeout(attemptApply, 100);
+            } else {
+                pendingSearchNote = null;
+            }
+            return;
+        }
+
+        const docPath = getIframePath(doc.location ? doc.location.href : '');
+        if (expectedPath && docPath && docPath !== expectedPath) {
+            attemptsLeft -= 1;
+            if (attemptsLeft > 0) {
+                window.setTimeout(attemptApply, 100);
+            } else {
+                pendingSearchNote = null;
+            }
+            return;
+        }
+
+        const applied = applySearchHighlightInIframe(iframe, pendingSearchQuery, note.file_name, pendingSearchMatchIndex);
+        if (!applied) {
+            console.warn('Search term not found in note viewer.');
+        }
+        pendingSearchNote = null;
+    };
+
+    const applyHighlightOnLoad = () => {
+        iframe.removeEventListener('load', applyHighlightOnLoad);
+        window.setTimeout(attemptApply, 50);
+    };
+
+    iframe.addEventListener('load', applyHighlightOnLoad);
+    attemptApply();
+}
+
+function toggleNoteDropdown() {
+    const dropdown = document.getElementById('notes-dropdown');
+    if (!dropdown) return;
+    dropdown.classList.toggle('open');
+}
+
+function closeNoteDropdown() {
+    const dropdown = document.getElementById('notes-dropdown');
+    if (!dropdown) return;
+    dropdown.classList.remove('open');
+}
+
+function selectNoteFromDropdown(index) {
+    if (index < 0 || index >= clinicalNotes.length) return;
+    const note = clinicalNotes[index];
+    currentNoteIndex = index;
+    if (noteSearchActive && noteSearchQuery && note) {
+        setPendingSearchTarget(note.file_name, 0);
+    }
+    closeNoteDropdown();
+    updateNoteDisplay();
+}
+
+function updateNoteDropdownSelection() {
+    const titleEl = document.getElementById('notes-dropdown-title');
+    const metaEl = document.getElementById('notes-dropdown-meta');
+    const menu = document.getElementById('notes-dropdown-menu');
+    if (!titleEl || !metaEl || !menu) return;
+
+    const currentNote = clinicalNotes[currentNoteIndex];
+    if (!currentNote) return;
+
+    const items = menu.querySelectorAll('.note-dropdown-item');
+    items.forEach(item => {
+        const index = Number(item.dataset.index);
+        item.classList.toggle('active', index === currentNoteIndex);
+        item.classList.remove('hidden');
+        item.disabled = false;
+    });
+
+    titleEl.textContent = getNoteDisplayName(currentNote);
+
+    const metaParts = [];
+    if (currentNote.relative_day !== null && currentNote.relative_day !== undefined) {
+        metaParts.push(`Day ${currentNote.relative_day}`);
+    }
+    if (currentNote.publish_ts_raw) {
+        metaParts.push(currentNote.publish_ts_raw);
+    }
+    metaEl.textContent = metaParts.join(' · ');
+}
+
+function prevNote() {
+    stepNoteInSequence(-1);
+}
+
+function nextNote() {
+    stepNoteInSequence(1);
+}
+
+function stepNoteInSequence(direction) {
+    const nextIndex = currentNoteIndex + direction;
+    if (nextIndex < 0 || nextIndex >= clinicalNotes.length) return;
+    currentNoteIndex = nextIndex;
+    const nextNote = clinicalNotes[currentNoteIndex];
+    if (noteSearchActive && noteSearchQuery && nextNote) {
+        setPendingSearchTarget(nextNote.file_name, 0);
+    } else {
+        pendingSearchQuery = null;
+        pendingSearchNote = null;
+        pendingSearchMatchIndex = 0;
+    }
+    updateNoteDisplay();
+}
+
+
+// Summary A view mode toggle
+function setSummaryAViewMode(mode) {
+    summaryAViewMode = mode;
+    document.getElementById('summary-a-html-toggle').classList.toggle('active', mode === 'html');
+    document.getElementById('summary-a-pdf-toggle').classList.toggle('active', mode === 'pdf');
+    loadSummaryAPart(currentSummaryAPartIndex);
+    const summaryATabActive = document.getElementById('tab-summary_a').classList.contains('active');
+    if (summaryATabActive) {
+        syncSummaryAAnnotationsTarget('summary_a');
+    }
+}
+
+// Summary A part switching
+function switchSummaryAPart(index) {
+    if (index < 0 || index >= summaryAParts.length) return;
+    const part = summaryAParts[index];
+    if (!part.available) return;
+
+    currentSummaryAPartIndex = index;
+    sessionStorage.setItem(summaryAPartKey, String(index));
+    syncSummaryAAnnotations(part);
+
+    document.querySelectorAll('.part-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', i === index);
+    });
+
+    // Update toggle button availability
+    const htmlToggle = document.getElementById('summary-a-html-toggle');
+    const pdfToggle = document.getElementById('summary-a-pdf-toggle');
+    htmlToggle.disabled = !part.has_html;
+    pdfToggle.disabled = !part.has_pdf;
+
+    updateSummaryARenderFallback(part);
+
+    // Auto-switch if current mode not available
+    if (summaryAViewMode === 'html' && !part.has_html && part.has_pdf) {
+        setSummaryAViewMode('pdf');
+        return;
+    } else if (summaryAViewMode === 'pdf' && !part.has_pdf && part.has_html) {
+        setSummaryAViewMode('html');
+        return;
+    }
+
+    loadSummaryAPart(index);
+}
+
+// Load Summary A part content
+function loadSummaryAPart(index) {
+    if (index < 0 || index >= summaryAParts.length) return;
+    const part = summaryAParts[index];
+    if (!part.available) return;
+
+    const iframe = document.getElementById('summary-a-iframe');
+    if (!iframe) return;
+
+    if (summaryAViewMode === 'html' && part.has_html) {
+        const summaryATabActive = document.getElementById('tab-summary_a').classList.contains('active');
+        if (summaryATabActive && summaryAAnnotationsManager) {
+            summaryAAnnotationsManager.attachToIframe(iframe);
+        }
+        const slug = part.url_slug || part.filename;
+        iframe.src = withAdminParams(`/html/${encounterNumber}/${slug}`);
+    } else if (part.has_pdf) {
+        const slug = part.url_slug || part.filename;
+        iframe.src = withAdminParams(`/pdf/${encounterNumber}/${slug}`);
+    } else {
+        iframe.src = 'about:blank';
+    }
+}
+
+function updateSummaryARenderFallback(part) {
+    if (!part || !part.html_failed) {
+        setRenderFallbackMessage('summary-a-render-fallback', '');
+        return;
+    }
+    const label = part.label || 'Summary A';
+    setRenderFallbackMessage('summary-a-render-fallback', `${label} cannot be rendered to HTML. PDF view is shown instead.`);
+}
+
+function updateSummaryAAnnotationsTitle(part) {
+    const titleEl = document.getElementById('annotations-title-summary_a_text');
+    if (!titleEl) {
+        return;
+    }
+    const label = part && part.label ? ` (${part.label})` : '';
+    titleEl.textContent = `Summary A Annotations${label}`;
+}
+
+function syncSummaryAAnnotations(part) {
+    updateSummaryAAnnotationsTitle(part);
+    if (summaryAAnnotationsManager) {
+        summaryAAnnotationsManager.setSummaryPart(part ? part.filename : null);
+    }
+}
+
+function handleHtmlRenderFailure(payload) {
+    if (!payload || !payload.type) return;
+    if (payload.type === 'clinical_note') {
+        const noteIndex = clinicalNotes.findIndex(note => note.file_name === payload.file_name);
+        if (noteIndex === -1) return;
+        const note = clinicalNotes[noteIndex];
+        note.has_html = false;
+        note.html_failed = true;
+        if (noteIndex === currentNoteIndex) {
+            updateNoteDisplay();
+        }
+        refreshSearchAfterRenderFailure(note.file_name);
+        return;
+    }
+    if (payload.type === 'summary_a') {
+        const partIndex = summaryAParts.findIndex(part => part.filename === payload.part);
+        if (partIndex === -1) return;
+        const part = summaryAParts[partIndex];
+        part.has_html = false;
+        part.html_failed = true;
+        if (partIndex === currentSummaryAPartIndex) {
+            switchSummaryAPart(partIndex);
+        }
+    }
+}
+
+window.addEventListener('message', function(event) {
+    if (event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (data && data.type === 'html_render_failed') {
+        handleHtmlRenderFailure(data.payload);
+    }
+});
+
+
+function getAnnotationsContext(summaryId) {
+    const suffix = summaryId === 'summary_a' ? 'summary_a' : 'summary_b';
+    return {
+        listEl: document.getElementById(`annotations-list-${suffix}`),
+        countEl: document.getElementById(`annotations-count-${suffix}`),
+        badgeEl: document.getElementById(`annotations-badge-${suffix}`),
+        toggleBtn: document.getElementById(`annotations-toggle-btn-${suffix}`),
+        panel: document.getElementById(`annotations-panel-${suffix}`),
+        emptyMessage: summaryId === 'summary_a'
+            ? 'Select text in Summary A to create annotations.'
+            : 'Enable Annotation Mode and select text in Summary B to create annotations.'
+    };
+}
+
+function getAnnotationsManager(summaryId) {
+    return summaryId === 'summary_a' ? summaryAAnnotationsManager : summaryBAnnotationsManager;
+}
+
+// Annotations panel toggle
+function toggleAnnotationsPanel(summaryId) {
+    const context = getAnnotationsContext(summaryId);
+    if (context.panel) {
+        context.panel.classList.toggle('open');
+    }
+}
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value).replace(/[&<>"']/g, (char) => {
+        switch (char) {
+            case '&':
+                return '&amp;';
+            case '<':
+                return '&lt;';
+            case '>':
+                return '&gt;';
+            case '"':
+                return '&quot;';
+            case "'":
+                return '&#39;';
+            default:
+                return char;
+        }
+    });
+}
+
+// Render annotations list in panel
+function renderAnnotationsList(annotations, summaryId) {
+    const context = getAnnotationsContext(summaryId);
+    const listEl = context.listEl;
+    const countEl = context.countEl;
+    const badgeEl = context.badgeEl;
+    const toggleBtn = context.toggleBtn;
+    if (!listEl || !countEl || !badgeEl || !toggleBtn) {
+        return;
+    }
+    const allowEdits = !readOnly;
+
+    // Update count
+    countEl.textContent = annotations.length > 0 ? `(${annotations.length})` : '';
+    if (annotations.length > 0) {
+        badgeEl.textContent = annotations.length;
+        badgeEl.style.display = 'inline';
+    } else {
+        badgeEl.style.display = 'none';
+    }
+
+    updateAnnotationsButtonVisibility();
+
+    if (annotations.length === 0) {
+        if (readOnly) {
+            const message = readOnlyExample
+                ? 'Annotations are read-only for this example case.'
+                : 'Annotations are read-only in admin view.';
+            listEl.innerHTML = `
+                <p class="annotations-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+                    ${message}
+                </p>
+            `;
+            return;
+        }
+        listEl.innerHTML = `
+            <p class="annotations-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+                ${context.emptyMessage}
+            </p>
+        `;
+        return;
+    }
+
+    // Issue type labels
+    const typeLabels = {
+        inaccuracy: 'Inaccuracy/Fabrication',
+        omission: 'Omission'
+    };
+
+    let html = '';
+    annotations.forEach(a => {
+        const truncatedText = a.selected_text
+            ? (a.selected_text.length > 80 ? a.selected_text.substring(0, 80) + '...' : a.selected_text)
+            : '';
+        const truncatedComment = a.comment_text.length > 100
+            ? a.comment_text.substring(0, 100) + '...'
+            : a.comment_text;
+        const safeIssueType = escapeHtml(typeLabels[a.issue_type] || a.issue_type);
+        const safeTruncatedText = escapeHtml(truncatedText);
+        const safeTruncatedComment = escapeHtml(truncatedComment);
+
+        const actionsHtml = allowEdits
+            ? `
+                <div class="sidebar-item-actions">
+                    <button class="sidebar-action-btn edit-btn" onclick="event.stopPropagation(); goToAnnotation('${summaryId}', ${a.annotation_id})">Jump</button>
+                    <button class="sidebar-action-btn edit-btn" onclick="event.stopPropagation(); editAnnotationFromSidebar('${summaryId}', ${a.annotation_id})">Edit</button>
+                    <button class="sidebar-action-btn delete-btn" onclick="event.stopPropagation(); deleteAnnotationFromSidebar('${summaryId}', ${a.annotation_id})">Delete</button>
+                </div>
+            `
+            : `
+                <div class="sidebar-item-actions">
+                    <button class="sidebar-action-btn edit-btn" onclick="event.stopPropagation(); goToAnnotation('${summaryId}', ${a.annotation_id})">Jump</button>
+                    <button class="sidebar-action-btn edit-btn" onclick="event.stopPropagation(); editAnnotationFromSidebar('${summaryId}', ${a.annotation_id})">View</button>
+                </div>
+            `;
+
+        html += `
+            <div class="annotation-item ${a.issue_type}">
+                <div class="annotation-item-header">
+                    <span class="annotation-item-type">${safeIssueType}</span>
+                    <span class="annotation-item-harm">Harm: ${a.harm_potential}/${a.harm_likelihood}</span>
+                </div>
+                ${truncatedText ? `<div class="annotation-item-text" style="cursor: pointer;" onclick="goToAnnotation('${summaryId}', ${a.annotation_id})">"${safeTruncatedText}"</div>` : ''}
+                <div class="annotation-item-comment">${safeTruncatedComment}</div>
+                ${actionsHtml}
+            </div>
+        `;
+    });
+
+    listEl.innerHTML = html;
+}
+
+// Navigate to an annotation in Summary A or B
+function goToAnnotation(summaryId, annotationId) {
+    switchTab(summaryId);
+    if (summaryId === 'summary_a' && summaryAViewMode !== 'html') {
+        setSummaryAViewMode('html');
+    }
+    const manager = getAnnotationsManager(summaryId);
+
+    // Scroll to annotation after a brief delay
+    setTimeout(() => {
+        if (manager) {
+            manager.scrollToAnnotation(annotationId);
+        }
+    }, 100);
+
+    // Close panel on mobile
+    if (window.innerWidth < 768) {
+        toggleAnnotationsPanel(summaryId);
+    }
+}
+
+// Highlights panel toggle
+function toggleHighlightsPanel() {
+    if (!highlightsEnabled) {
+        return;
+    }
+    const panel = document.getElementById('highlights-panel');
+    if (!panel) {
+        return;
+    }
+    panel.classList.toggle('open');
+}
+
+// Render highlights list in sidebar
+function renderHighlightsList(highlights) {
+    if (!highlightsEnabled) {
+        return;
+    }
+    const listEl = document.getElementById('highlights-list');
+    const countEl = document.getElementById('highlights-count');
+    const badgeEl = document.getElementById('highlights-badge');
+    if (!listEl || !countEl || !badgeEl) {
+        return;
+    }
+
+    const currentNote = clinicalNotes[currentNoteIndex];
+    const currentFilename = currentNote ? currentNote.file_name : null;
+    const noteHighlights = currentFilename
+        ? highlights.filter(h => h.note_filename === currentFilename)
+        : [];
+    const allowEdits = !readOnly;
+
+    // Update count
+    countEl.textContent = noteHighlights.length > 0 ? `(${noteHighlights.length})` : '';
+    if (noteHighlights.length > 0) {
+        badgeEl.textContent = noteHighlights.length;
+        badgeEl.style.display = 'inline';
+    } else {
+        badgeEl.style.display = 'none';
+    }
+
+    if (!currentNote) {
+        listEl.innerHTML = `
+            <p class="highlights-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+                Select a clinical note to view highlights.
+            </p>
+        `;
+        return;
+    }
+
+    if (noteHighlights.length === 0) {
+        if (readOnly) {
+            const message = readOnlyExample
+                ? 'Highlights are read-only for this example case.'
+                : 'Highlights are read-only in admin view.';
+            listEl.innerHTML = `
+                <p class="highlights-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+                    ${message}
+                </p>
+            `;
+            return;
+        }
+        listEl.innerHTML = `
+            <p class="highlights-empty-state" style="color: #6b7280; font-size: 0.875rem;">
+                View HTML mode and select text in this clinical note to create a highlight.
+            </p>
+        `;
+        return;
+    }
+
+    // Color styles
+    const colorBg = {
+        yellow: '#fef08a',
+        green: '#bbf7d0',
+        blue: '#bfdbfe',
+        pink: '#fbcfe8',
+        orange: '#fed7aa'
+    };
+
+    let dayBadge = '';
+    let citedBadge = '';
+    let publishBadge = '';
+    const displayName = getNoteDisplayName(currentNote);
+    const safeDisplayName = escapeHtml(displayName);
+    if (currentNote.relative_day !== null && currentNote.relative_day !== undefined) {
+        dayBadge = `<span class="day-indicator" style="margin-left: 0.5rem; font-size: 0.65rem; padding: 0.15rem 0.4rem;">Day ${currentNote.relative_day}</span>`;
+    }
+    if (currentNote.publish_ts_raw) {
+        const safePublishTs = escapeHtml(currentNote.publish_ts_raw);
+        publishBadge = `<span class="publish-indicator" style="margin-left: 0.5rem; font-size: 0.65rem; padding: 0.15rem 0.4rem;">${safePublishTs}</span>`;
+    }
+    if (currentNote.cited_by_ai) {
+        citedBadge = `<span class="cited-indicator" style="margin-left: 0.5rem; font-size: 0.65rem; padding: 0.15rem 0.4rem;">Cited by AI</span>`;
+    } else {
+        citedBadge = `<span style="margin-left: 0.5rem; font-size: 0.65rem; padding: 0.15rem 0.4rem; background: #f3f4f6; color: #6b7280; border-radius: 4px;">Not Cited by AI</span>`;
+    }
+
+    let html = `
+        <div class="highlight-group" style="margin-bottom: 1rem;">
+            <div style="font-weight: 500; font-size: 0.8rem; color: #374151; margin-bottom: 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem;">
+                <span>${safeDisplayName}</span>${dayBadge}${publishBadge}${citedBadge}
+            </div>
+    `;
+
+    noteHighlights.forEach(h => {
+        const truncatedText = h.selected_text.length > 60
+            ? h.selected_text.substring(0, 60) + '...'
+            : h.selected_text;
+        const escapedFilename = h.note_filename.replace(/'/g, "\\'");
+        const safeTruncatedText = escapeHtml(truncatedText);
+        const safeComment = escapeHtml(h.comment);
+
+        const actionsHtml = allowEdits
+            ? `
+                <div class="sidebar-item-actions">
+                    <button class="sidebar-action-btn edit-btn" onclick="event.stopPropagation(); jumpToHighlight(${h.highlight_id}, '${escapedFilename}')">Jump</button>
+                    <button class="sidebar-action-btn edit-btn" onclick="event.stopPropagation(); editHighlightFromSidebar(${h.highlight_id})">Edit</button>
+                    <button class="sidebar-action-btn delete-btn" onclick="event.stopPropagation(); deleteHighlightFromSidebar(${h.highlight_id})">Delete</button>
+                </div>
+            `
+            : `
+                <div class="sidebar-item-actions">
+                    <button class="sidebar-action-btn edit-btn" onclick="event.stopPropagation(); jumpToHighlight(${h.highlight_id}, '${escapedFilename}')">Jump</button>
+                </div>
+            `;
+
+        html += `
+            <div class="highlight-item" style="background: ${colorBg[h.color]}; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.8rem;">
+                <div style="color: #374151; line-height: 1.4;">"${safeTruncatedText}"</div>
+                ${h.comment ? `<div style="color: #6b7280; font-size: 0.75rem; margin-top: 0.25rem; font-style: italic;">${safeComment}</div>` : ''}
+                ${actionsHtml}
+            </div>
+        `;
+    });
+
+    html += '</div>';
+
+    listEl.innerHTML = html;
+}
+
+function getNoteDisplayName(note) {
+    if (!note) return '';
+    if (note.note_type && String(note.note_type).trim()) {
+        return String(note.note_type).trim();
+    }
+    const raw = note.display_name || note.file_name || '';
+    return raw.replace(/\s*\(Day\s+\d+\)\s*$/i, '').trim();
+}
+
+function getPublishDisplay(note) {
+    if (!note || !note.publish_ts_raw) {
+        return '';
+    }
+    return note.publish_ts_raw;
+}
+
+function getNoteDayKey(note) {
+    if (!note || note.relative_day === null || note.relative_day === undefined) {
+        return 'unknown';
+    }
+    return String(note.relative_day);
+}
+
+function getTimelineNodeId(noteFilename) {
+    if (!noteFilename) return '';
+    const safe = noteFilename.replace(/[^a-zA-Z0-9_-]/g, '-');
+    return `timeline-node-${safe}`;
+}
+
+function formatHighlightTimestamp(value) {
+    if (!value) return 'Timestamp unavailable';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'Timestamp unavailable';
+    return parsed.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function sortHighlightsForTimeline(highlights) {
+    return [...highlights].sort((a, b) => {
+        const aTime = Date.parse(a.created_at || '');
+        const bTime = Date.parse(b.created_at || '');
+        if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) {
+            return aTime - bTime;
+        }
+        if (!Number.isNaN(aTime) && Number.isNaN(bTime)) {
+            return -1;
+        }
+        if (Number.isNaN(aTime) && !Number.isNaN(bTime)) {
+            return 1;
+        }
+        return (a.start_offset || 0) - (b.start_offset || 0);
+    });
+}
+
+function buildTimelineDayOptions(notes) {
+    const numericDays = new Set();
+    let hasUnknown = false;
+    notes.forEach(note => {
+        if (note.relative_day === null || note.relative_day === undefined) {
+            hasUnknown = true;
+        } else {
+            numericDays.add(Number(note.relative_day));
+        }
+    });
+
+    const sortedDays = Array.from(numericDays).filter(d => !Number.isNaN(d)).sort((a, b) => a - b);
+    const options = sortedDays.map(day => ({
+        key: String(day),
+        label: `Day ${day}`
+    }));
+
+    if (hasUnknown) {
+        options.push({ key: 'unknown', label: 'Unknown Day' });
+    }
+
+    return options;
+}
+
+function highlightTimelineNode(noteFilename, options = {}) {
+    const axisEl = document.getElementById('timeline-axis');
+    const nodeId = getTimelineNodeId(noteFilename);
+    const node = document.getElementById(nodeId);
+    if (!axisEl || !node) {
+        return false;
+    }
+
+    const shouldCenter = options.centerInView === true;
+    let didCenterScroll = false;
+    if (shouldCenter) {
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const nodeRect = node.getBoundingClientRect();
+        if (viewportHeight && (nodeRect.top < 0 || nodeRect.bottom > viewportHeight)) {
+            const targetTop = window.scrollY + nodeRect.top - (viewportHeight / 2) + (nodeRect.height / 2);
+            window.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' });
+            didCenterScroll = true;
+        }
+    }
+
+    const axisRect = axisEl.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const nodeLeft = nodeRect.left - axisRect.left + axisEl.scrollLeft;
+    const nodeRight = nodeLeft + nodeRect.width;
+    const visibleLeft = axisEl.scrollLeft;
+    const visibleRight = visibleLeft + axisEl.clientWidth;
+
+    if (nodeLeft < visibleLeft || nodeRight > visibleRight) {
+        const targetLeft = nodeLeft - (axisEl.clientWidth / 2) + (node.offsetWidth / 2);
+        axisEl.scrollLeft = Math.max(0, targetLeft);
+    }
+
+    const runEmphasis = () => {
+        node.classList.add('timeline-node-spotlight');
+        if (node.animate) {
+            const animation = node.animate(
+                [
+                    { boxShadow: '0 0 0 0 rgba(249, 115, 22, 0.75)', background: '#fff7ed', transform: 'translateY(0)' },
+                    { boxShadow: '0 0 0 14px rgba(249, 115, 22, 0.35)', background: '#ffedd5', transform: 'translateY(-1px)' },
+                    { boxShadow: '0 0 0 6px rgba(14, 165, 233, 0.35)', background: '#e0f2fe', transform: 'translateY(0)' },
+                    { boxShadow: '0 0 0 0 rgba(249, 115, 22, 0)', background: '#f9fafb', transform: 'translateY(0)' }
+                ],
+                { duration: 1400, iterations: 3, easing: 'ease-in-out' }
+            );
+            animation.addEventListener('finish', () => {
+                node.classList.remove('timeline-node-spotlight');
+            });
+            animation.addEventListener('cancel', () => {
+                node.classList.remove('timeline-node-spotlight');
+            });
+        } else {
+            node.classList.remove('timeline-node-blink');
+            void node.offsetWidth;
+            node.classList.add('timeline-node-blink');
+            window.setTimeout(() => {
+                node.classList.remove('timeline-node-blink');
+                node.classList.remove('timeline-node-spotlight');
+            }, 4200);
+        }
+    };
+
+    if (didCenterScroll) {
+        requestAnimationFrame(() => requestAnimationFrame(runEmphasis));
+    } else {
+        requestAnimationFrame(runEmphasis);
+    }
+
+    return true;
+}
+
+function renderHighlightsTimeline(highlights) {
+    const overviewEl = document.getElementById('timeline-overview');
+    const detailEl = document.getElementById('timeline-detail');
+    const axisEl = document.getElementById('timeline-axis');
+    const eventsEl = document.getElementById('timeline-events');
+    const detailTitleEl = document.getElementById('timeline-detail-title');
+    const detailMetaEl = document.getElementById('timeline-detail-meta');
+    const dayLabelEl = document.getElementById('timeline-day-label');
+    const dayPrevBtn = document.getElementById('timeline-day-prev');
+    const dayNextBtn = document.getElementById('timeline-day-next');
+    const notePrevBtn = document.getElementById('timeline-note-prev');
+    const noteNextBtn = document.getElementById('timeline-note-next');
+
+    if (!overviewEl || !detailEl || !axisEl || !eventsEl || !detailTitleEl || !detailMetaEl) {
+        return;
+    }
+
+    const noteLookup = {};
+    clinicalNotes.forEach(note => {
+        noteLookup[note.file_name] = note;
+    });
+
+    const filteredHighlights = (highlights || []).filter(h => noteLookup[h.note_filename]);
+    const highlightsByNote = {};
+    filteredHighlights.forEach(h => {
+        if (!highlightsByNote[h.note_filename]) {
+            highlightsByNote[h.note_filename] = [];
+        }
+        highlightsByNote[h.note_filename].push(h);
+    });
+
+    const notesToDisplayBase = timelineShowAllNotes
+        ? clinicalNotes
+        : clinicalNotes.filter(note => highlightsByNote[note.file_name]);
+    const notesToDisplay = notesToDisplayBase;
+
+    timelineDayOptions = buildTimelineDayOptions(notesToDisplay);
+    if (!timelineSelectedDay && timelineDayOptions.length > 0) {
+        timelineSelectedDay = timelineDayOptions[0].key;
+    }
+    if (timelineSelectedDay && !timelineDayOptions.find(option => option.key === timelineSelectedDay)) {
+        timelineSelectedDay = timelineDayOptions.length ? timelineDayOptions[0].key : null;
+    }
+
+    if (dayLabelEl) {
+        if (timelineDayOptions.length > 0) {
+            const dayOption = timelineDayOptions.find(option => option.key === timelineSelectedDay);
+            dayLabelEl.textContent = dayOption ? dayOption.label : 'Day';
+        } else {
+            dayLabelEl.textContent = 'No days';
+        }
+    }
+    if (dayPrevBtn && dayNextBtn) {
+        const dayIndex = timelineDayOptions.findIndex(option => option.key === timelineSelectedDay);
+        dayPrevBtn.disabled = timelineDayOptions.length === 0 || dayIndex <= 0;
+        dayNextBtn.disabled = timelineDayOptions.length === 0 || dayIndex === -1 || dayIndex >= timelineDayOptions.length - 1;
+    }
+
+    if (timelineMode === 'note' && selectedTimelineNote) {
+        const note = noteLookup[selectedTimelineNote];
+        if (!note) {
+            timelineMode = 'overview';
+            selectedTimelineNote = null;
+        } else {
+            timelineSelectedDay = getNoteDayKey(note);
+            overviewEl.style.display = 'none';
+            detailEl.classList.add('active');
+            if (dayPrevBtn && dayNextBtn) {
+                dayPrevBtn.style.display = 'none';
+                dayNextBtn.style.display = 'none';
+            }
+
+            const noteHighlights = highlightsByNote[selectedTimelineNote] || [];
+            const commentCount = noteHighlights.filter(h => h.comment && h.comment.trim()).length;
+
+            detailTitleEl.textContent = getNoteDisplayName(note);
+
+            let metaHtml = '';
+            if (note.relative_day !== null && note.relative_day !== undefined) {
+                metaHtml += `<span class="day-indicator">Day ${note.relative_day}</span>`;
+            } else {
+                metaHtml += `<span class="day-indicator">Unknown Day</span>`;
+            }
+            const publishLabel = getPublishDisplay(note);
+            if (publishLabel) {
+                metaHtml += `<span class="publish-indicator">Published: ${publishLabel}</span>`;
+            }
+
+            if (note.cited_by_ai) {
+                metaHtml += `<span class="cited-indicator">Cited by AI</span>`;
+            } else {
+                metaHtml += `<span class="cited-indicator" style="background: #f3f4f6; color: #6b7280;">Not Cited by AI</span>`;
+            }
+
+            metaHtml += `<span class="timeline-count">${noteHighlights.length} highlights</span>`;
+            if (commentCount > 0) {
+                metaHtml += `<span>${commentCount} comments</span>`;
+            }
+
+            detailMetaEl.innerHTML = metaHtml;
+
+            if (noteHighlights.length === 0) {
+                eventsEl.innerHTML = `<div class="timeline-empty">No highlights for this note yet.</div>`;
+            } else {
+                const ordered = sortHighlightsForTimeline(noteHighlights);
+                const colorClass = color => `color-${color || 'yellow'}`;
+                const allowEdits = !readOnly;
+
+                let eventsHtml = '';
+                ordered.forEach(h => {
+                    const snippet = h.selected_text || '';
+                    const displayText = snippet.length > 160 ? snippet.slice(0, 160) + '...' : snippet;
+                    const commentText = h.comment ? h.comment.trim() : '';
+                    const timestamp = formatHighlightTimestamp(h.created_at);
+
+                    const actionsHtml = allowEdits
+                        ? `
+                            <div class="timeline-event-actions">
+                                <button class="sidebar-action-btn edit-btn" onclick="jumpToHighlight(${h.highlight_id}, '${h.note_filename.replace(/'/g, "\\'")}')">Jump</button>
+                                <button class="sidebar-action-btn edit-btn" onclick="editHighlightFromSidebar(${h.highlight_id})">Edit</button>
+                                <button class="sidebar-action-btn delete-btn" onclick="deleteHighlightFromSidebar(${h.highlight_id})">Delete</button>
+                            </div>
+                        `
+                        : `
+                            <div class="timeline-event-actions">
+                                <button class="sidebar-action-btn edit-btn" onclick="jumpToHighlight(${h.highlight_id}, '${h.note_filename.replace(/'/g, "\\'")}')">Jump</button>
+                            </div>
+                        `;
+
+                    eventsHtml += `
+                        <div class="timeline-event ${colorClass(h.color)}">
+                            <div class="timeline-event-header">
+                                <span>${timestamp}</span>
+                            </div>
+                            <div class="timeline-event-text">"${displayText}"</div>
+                            ${commentText ? `<div class="timeline-event-comment">${commentText}</div>` : ''}
+                            ${actionsHtml}
+                        </div>
+                    `;
+                });
+                eventsEl.innerHTML = eventsHtml;
+            }
+
+            eventsEl.scrollTop = timelineDetailScrollTop;
+    if (!timelineShowAllNotes && noteHighlights.length === 0) {
+        timelineShowAllNotes = true;
+        document.getElementById('timeline-toggle-highlights').classList.remove('active');
+        document.getElementById('timeline-toggle-all').classList.add('active');
+        sessionStorage.setItem(timelineShowAllKey, 'all');
+    }
+
+            const baseNotes = timelineShowAllNotes
+                ? clinicalNotes
+                : clinicalNotes.filter(item => highlightsByNote[item.file_name]);
+            timelineNoteSequence = baseNotes.map(item => item.file_name);
+
+            if (notePrevBtn && noteNextBtn) {
+                const noteIndex = timelineNoteSequence.indexOf(selectedTimelineNote);
+                notePrevBtn.disabled = noteIndex <= 0;
+                noteNextBtn.disabled = noteIndex === -1 || noteIndex >= timelineNoteSequence.length - 1;
+            }
+            return;
+        }
+    }
+
+    detailEl.classList.remove('active');
+    overviewEl.style.display = 'block';
+    if (dayPrevBtn && dayNextBtn) {
+        dayPrevBtn.style.display = '';
+        dayNextBtn.style.display = '';
+    }
+    timelineNoteSequence = [];
+
+    if (lastTimelineNote && !timelineShowAllNotes && !highlightsByNote[lastTimelineNote]) {
+        timelineShowAllNotes = true;
+        document.getElementById('timeline-toggle-highlights').classList.remove('active');
+        document.getElementById('timeline-toggle-all').classList.add('active');
+        sessionStorage.setItem(timelineShowAllKey, 'all');
+    }
+
+    const dayKey = timelineSelectedDay;
+    const dayNotes = dayKey
+        ? notesToDisplay.filter(note => getNoteDayKey(note) === dayKey)
+        : [];
+
+    if (notesToDisplay.length === 0 || dayNotes.length === 0) {
+        let emptyMessage = 'No notes available for this day.';
+        if (!timelineShowAllNotes) {
+            emptyMessage = 'No highlighted notes for this day.';
+        }
+        axisEl.innerHTML = `
+            <div class="timeline-empty">
+                ${emptyMessage}
+            </div>
+        `;
+        return;
+    }
+
+    const colorOrder = ['yellow', 'green', 'blue', 'pink', 'orange'];
+
+    let axisHtml = '';
+    const dayOption = timelineDayOptions.find(option => option.key === dayKey);
+    const dayLabel = dayOption ? dayOption.label : 'Day';
+
+    axisHtml += `<div class="timeline-day"><div class="timeline-day-header">${dayLabel}</div><div class="timeline-tree">`;
+        dayNotes.forEach(note => {
+            const noteHighlights = highlightsByNote[note.file_name] || [];
+            const commentCount = noteHighlights.filter(h => h.comment && h.comment.trim()).length;
+            const totalHighlights = noteHighlights.length;
+            const mutedClass = totalHighlights === 0 ? 'muted' : '';
+            const publishLabel = getPublishDisplay(note);
+            const colorRow = colorOrder.map(color => {
+                const count = noteHighlights.filter(h => h.color === color).length;
+                if (count === 0) {
+                    return `<span class="timeline-color-chip color-${color}" style="width: 16px; opacity: 0.2;"></span>`;
+                }
+            const width = Math.min(120, Math.max(24, count * 18));
+            return `<span class="timeline-color-chip color-${color}" style="width: ${width}px;" title="${color}: ${count}"></span>`;
+        }).join('');
+
+            const nodeId = getTimelineNodeId(note.file_name);
+            axisHtml += `
+                <div class="timeline-node-row">
+                    <div class="timeline-node ${mutedClass}" id="${nodeId}" onclick="handleTimelineNodeClick('${note.file_name.replace(/'/g, "\\'")}')">
+                        <div class="timeline-node-main">
+                            <span class="timeline-node-title">${getNoteDisplayName(note)}</span>
+                        </div>
+                        <div class="timeline-node-details">
+                            <div class="timeline-node-stats">
+                                <span class="timeline-badge">Highlights: ${totalHighlights}</span>
+                                <span class="timeline-badge">Comments: ${commentCount}</span>
+                                ${publishLabel ? `<span class="timeline-badge">Published: ${publishLabel}</span>` : ''}
+                                ${note.cited_by_ai
+                                    ? `<span class="timeline-badge cited">Cited by AI</span>`
+                                : `<span class="timeline-badge not-cited">Not cited by AI</span>`}
+                        </div>
+                        <span class="timeline-color-row">${colorRow}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    axisHtml += `</div></div>`;
+
+    axisEl.innerHTML = axisHtml;
+    if (timelineViewerHighlightNote) {
+        const highlighted = highlightTimelineNode(timelineViewerHighlightNote, { centerInView: true });
+        if (!highlighted) {
+            axisEl.scrollLeft = timelineOverviewScrollLeft;
+        }
+        timelineViewerHighlightNote = null;
+        timelinePendingCenterNote = null;
+    } else if (lastTimelineNote) {
+        const highlighted = highlightTimelineNode(lastTimelineNote);
+        if (!highlighted) {
+            axisEl.scrollLeft = timelineOverviewScrollLeft;
+        }
+        lastTimelineNote = null;
+    } else {
+        axisEl.scrollLeft = timelineOverviewScrollLeft;
+    }
+}
+
+function handleHighlightsChange(highlights) {
+    if (!highlightsEnabled) {
+        return;
+    }
+    renderHighlightsList(highlights);
+    renderHighlightsTimeline(highlights);
+}
+
+// Jump to a highlight from the sidebar
+function jumpToHighlight(highlightId, noteFilename) {
+    // Check if this is a Summary A highlight
+    if (noteFilename.startsWith('summary_a_')) {
+        const partName = noteFilename.replace('summary_a_', '');
+        const partIndex = summaryAParts.findIndex(p => p.filename === partName);
+        if (partIndex === -1) return;
+
+        // Switch to Summary A tab
+        switchTab('summary_a');
+
+        // Ensure we're in HTML mode
+        if (summaryAViewMode !== 'html') {
+            setSummaryAViewMode('html');
+        }
+
+        // Navigate to the part
+        if (currentSummaryAPartIndex !== partIndex) {
+            switchSummaryAPart(partIndex);
+        }
+
+        // Scroll to highlight after iframe loads
+        const iframe = document.getElementById('summary-a-iframe');
+        const scrollToHighlight = () => {
+            if (highlightsManager) {
+                highlightsManager.scrollToHighlight(highlightId);
+            }
+            iframe.removeEventListener('load', scrollToHighlight);
+        };
+
+        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+            setTimeout(() => {
+                if (highlightsManager) {
+                    highlightsManager.scrollToHighlight(highlightId);
+                }
+            }, 100);
+        } else {
+            iframe.addEventListener('load', scrollToHighlight);
+        }
+    } else {
+        // Clinical note highlight
+        const noteIndex = clinicalNotes.findIndex(n => n.file_name === noteFilename);
+        if (noteIndex === -1) return;
+
+        // Switch to clinical notes tab if needed
+        switchTab('clinical_notes');
+
+        // Ensure we're in HTML mode
+        if (viewMode !== 'html') {
+            setViewMode('html');
+        }
+
+        // Navigate to the note
+        if (currentNoteIndex !== noteIndex) {
+            currentNoteIndex = noteIndex;
+            updateNoteDisplay();
+        }
+
+        // Scroll to highlight after iframe loads
+        const iframe = document.getElementById('clinical-note-iframe');
+        const scrollToHighlight = () => {
+            if (highlightsManager) {
+                highlightsManager.scrollToHighlight(highlightId);
+            }
+            iframe.removeEventListener('load', scrollToHighlight);
+        };
+
+        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+            setTimeout(() => {
+                if (highlightsManager) {
+                    highlightsManager.scrollToHighlight(highlightId);
+                }
+            }, 100);
+        } else {
+            iframe.addEventListener('load', scrollToHighlight);
+        }
+    }
+
+    // Close the sidebar on mobile
+    if (window.innerWidth < 768) {
+        toggleHighlightsPanel();
+    }
+}
+
+// Update annotations button visibility when switching tabs
+function updateAnnotationsButtonVisibility() {
+    const summaryATabActive = document.getElementById('tab-summary_a').classList.contains('active');
+    const summaryBTabActive = document.getElementById('tab-summary_b').classList.contains('active');
+    const toggleBtnA = document.getElementById('annotations-toggle-btn-summary_a');
+    const panelA = document.getElementById('annotations-panel-summary_a');
+    const toggleBtnB = document.getElementById('annotations-toggle-btn-summary_b');
+    const panelB = document.getElementById('annotations-panel-summary_b');
+    const shouldShowA = summaryATabActive && isSummaryGateOpen("summary_a");
+    const shouldShowB = summaryBTabActive && isSummaryGateOpen("summary_b");
+    if (toggleBtnA) {
+        toggleBtnA.classList.toggle('visible', shouldShowA);
+    }
+    if (toggleBtnB) {
+        toggleBtnB.classList.toggle('visible', shouldShowB);
+    }
+    if (!shouldShowA && panelA) {
+        panelA.classList.remove('open');
+    }
+    if (!shouldShowB && panelB) {
+        panelB.classList.remove('open');
+    }
+}
+
+function updateHighlightsVisibility() {
+    if (!highlightsEnabled) {
+        return;
+    }
+    const clinicalNotesTabActive = document.getElementById('tab-clinical_notes').classList.contains('active');
+    const toggleBtn = document.getElementById('highlights-toggle-btn');
+    const panel = document.getElementById('highlights-panel');
+    if (!toggleBtn || !panel) {
+        return;
+    }
+    toggleBtn.classList.toggle('visible', clinicalNotesTabActive);
+    if (!clinicalNotesTabActive) {
+        panel.classList.remove('open');
+        panel.classList.add('hidden');
+    } else {
+        panel.classList.remove('hidden');
+    }
+}
+
+// Override switchTab to update annotations button
+const originalSwitchTab = switchTab;
+switchTab = function(tabId) {
+    originalSwitchTab(tabId);
+    updateAnnotationsButtonVisibility();
+    updateHighlightsVisibility();
+    updateSearchNavigator(noteSearchTotalMatches, globalSearchMatchIndex + 1, noteSearchQuery || activeSearchQuery || '');
+    syncHighlightsManagerTarget(tabId);
+    syncSummaryAAnnotationsTarget(tabId);
+    if (tabId === 'summary_a') {
+        ensureSummaryALoaded();
+    }
+    updateReviewGateUI();
+    if (highlightsEnabled && tabId === 'highlights_timeline') {
+        renderHighlightsTimeline(highlightsManager ? highlightsManager.highlights : []);
+    }
+};
+
+// Sidebar action handlers for highlights
+function editHighlightFromSidebar(highlightId) {
+    if (!highlightsEnabled) {
+        return;
+    }
+    if (readOnly) {
+        return;
+    }
+    if (highlightsManager) {
+        highlightsManager.editHighlight(highlightId);
+    }
+}
+
+function deleteHighlightFromSidebar(highlightId) {
+    if (!highlightsEnabled) {
+        return;
+    }
+    if (readOnly) {
+        return;
+    }
+    if (confirm('Delete this highlight?')) {
+        if (highlightsManager) {
+            highlightsManager.deleteHighlight(highlightId);
+        }
+    }
+}
+
+// Sidebar action handlers for annotations
+function editAnnotationFromSidebar(summaryId, annotationId) {
+    const manager = getAnnotationsManager(summaryId);
+    if (manager) {
+        manager.editAnnotation(annotationId);
+    }
+}
+
+function deleteAnnotationFromSidebar(summaryId, annotationId) {
+    if (readOnly) {
+        return;
+    }
+    if (confirm('Delete this annotation?')) {
+        const manager = getAnnotationsManager(summaryId);
+        if (manager) {
+            manager.deleteAnnotation(annotationId);
+        }
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (summaryAParts.length > 0) {
+        const storedIndex = sessionStorage.getItem(summaryAPartKey);
+        let initialIndex = 0;
+        if (storedIndex !== null) {
+            const parsedIndex = Number.parseInt(storedIndex, 10);
+            if (!Number.isNaN(parsedIndex) && parsedIndex >= 0 && parsedIndex < summaryAParts.length) {
+                initialIndex = parsedIndex;
+            }
+        }
+        const firstAvailableIndex = summaryAParts.findIndex(part => part.available);
+        if (firstAvailableIndex !== -1) {
+            if (!summaryAParts[initialIndex] || !summaryAParts[initialIndex].available) {
+                initialIndex = firstAvailableIndex;
+            }
+            currentSummaryAPartIndex = initialIndex;
+        }
+    }
+
+    if (highlightsEnabled && typeof HighlightsManager !== 'undefined') {
+        // Initialize highlights manager
+        highlightsManager = new HighlightsManager({
+            encounterNumber: encounterNumber,
+            doctorId: doctorId,
+            onHighlightsChange: handleHighlightsChange,
+            readOnly: readOnly,
+            adminView: readOnlyAdmin,
+            reviewDoctorId: reviewDoctorId
+        });
+
+        // Load existing highlights
+        highlightsManager.loadHighlights();
+    }
+
+    // Initialize annotations managers
+    summaryAAnnotationsManager = new AnnotationsManager({
+        encounterNumber: encounterNumber,
+        doctorId: doctorId,
+        onAnnotationsChange: (annotations) => renderAnnotationsList(annotations, 'summary_a'),
+        readOnly: readOnly,
+        adminView: readOnlyAdmin,
+        reviewDoctorId: reviewDoctorId,
+        summaryLabel: 'A',
+        summaryPart: summaryAParts.length > 0 && summaryAParts[currentSummaryAPartIndex]
+            ? summaryAParts[currentSummaryAPartIndex].filename
+            : null,
+        contentSelector: '.document-content'
+    });
+
+    summaryBAnnotationsManager = new AnnotationsManager({
+        encounterNumber: encounterNumber,
+        doctorId: doctorId,
+        onAnnotationsChange: (annotations) => renderAnnotationsList(annotations, 'summary_b'),
+        readOnly: readOnly,
+        adminView: readOnlyAdmin,
+        reviewDoctorId: reviewDoctorId,
+        summaryLabel: 'B',
+        contentId: 'summary-b-content'
+    });
+
+    // Attach annotations manager to Summary B iframe
+    const summaryBIframe = document.getElementById('summary-b-iframe');
+    if (summaryBIframe) {
+        summaryBAnnotationsManager.attachToIframe(summaryBIframe);
+    }
+
+    // Enable annotation mode by default
+    summaryAAnnotationsManager.enableAnnotationMode(true);
+    summaryBAnnotationsManager.enableAnnotationMode(true);
+
+    // Load existing annotations
+    summaryAAnnotationsManager.loadAnnotations();
+    summaryBAnnotationsManager.loadAnnotations();
+
+    if (clinicalNotes.length > 0) {
+        // Check if first note has HTML, otherwise default to PDF
+        const firstNote = clinicalNotes[0];
+        if (!firstNote.has_html && firstNote.has_pdf) {
+            viewMode = 'pdf';
+            document.getElementById('html-toggle').classList.remove('active');
+            document.getElementById('pdf-toggle').classList.add('active');
+        }
+        updateNoteDisplay();
+    }
+
+    // Initialize Summary A
+    if (summaryAParts.length > 0) {
+        const initialPart = summaryAParts[currentSummaryAPartIndex];
+        if (initialPart && initialPart.available) {
+            switchSummaryAPart(currentSummaryAPartIndex);
+        }
+    }
+
+    // Initial visibility update for annotations button
+    updateAnnotationsButtonVisibility();
+    updateHighlightsVisibility();
+    updateReviewGateUI();
+    if (highlightsEnabled) {
+        const storedTimelineMode = sessionStorage.getItem(timelineShowAllKey);
+        if (storedTimelineMode === 'highlights') {
+            timelineShowAllNotes = false;
+        } else {
+            timelineShowAllNotes = true;
+        }
+        setTimelineShowAll(timelineShowAllNotes, false);
+    }
+
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('notes-dropdown');
+        if (!dropdown) return;
+        if (!dropdown.contains(event.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
+
+    document.addEventListener('change', function(event) {
+        if (!event.target.matches('input[type="radio"]')) {
+            return;
+        }
+        scheduleReviewGateUpdate();
+    });
+
+    document.addEventListener('htmx:afterSwap', function(event) {
+        if (event.target && event.target.id === 'review-status-badge') {
+            updateReviewGateUI();
+        }
+    });
+
+    document.addEventListener('htmx:afterRequest', function(event) {
+        if (!event.detail || !event.detail.successful) {
+            return;
+        }
+        const form = event.target;
+        if (!form || !form.classList || !form.classList.contains('comment-form')) {
+            return;
+        }
+        const indicator = form.querySelector('.comment-saved');
+        if (!indicator) {
+            return;
+        }
+        indicator.classList.add('visible');
+        if (form.dataset.savedTimer) {
+            window.clearTimeout(Number(form.dataset.savedTimer));
+        }
+        const timer = window.setTimeout(() => {
+            indicator.classList.remove('visible');
+            delete form.dataset.savedTimer;
+        }, 2000);
+        form.dataset.savedTimer = String(timer);
+    });
+
+    if (highlightsEnabled) {
+        // Ensure the highlights manager points at the initially visible tab (clinical notes by default).
+        const activeTab = document.querySelector('.tab-content.active');
+        if (activeTab && activeTab.id) {
+            syncHighlightsManagerTarget(activeTab.id.replace('tab-', ''));
+        }
+    }
+
+});
+</script>
+{% endblock %}

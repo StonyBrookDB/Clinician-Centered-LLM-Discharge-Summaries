@@ -1,0 +1,10 @@
+{# Review completion badge (used for HTMX swaps) #}
+
+{% set _badge_id = badge_id if badge_id is defined else None %}
+<span
+  {% if _badge_id %}id="{{ _badge_id }}"{% endif %}
+  class="{{ 'status-complete' if review_completed else 'status-incomplete' }}"
+>
+  {{ 'Complete' if review_completed else 'Incomplete' }}
+</span>
+

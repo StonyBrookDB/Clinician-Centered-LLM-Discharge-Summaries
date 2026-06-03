@@ -1,0 +1,5 @@
+note_type,include_for_summary,include_for_incidental
+admission_note,true,false
+progress_note,true,false
+radiology_report,false,true
+discharge_instruction,true,false

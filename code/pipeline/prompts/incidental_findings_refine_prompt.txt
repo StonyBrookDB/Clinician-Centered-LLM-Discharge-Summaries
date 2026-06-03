@@ -1,0 +1,27 @@
+<instructions>
+You are refining a list of incidental radiology findings based on additional clinical note context.
+
+Instructions:
+- Use the discharge summary to keep the primary reason for hospitalization in view and focus on findings unrelated to those primary issues.
+- Update the findings to incorporate any new or more specific radiology information contained in the context.
+- Preserve the integrity of previously validated findings unless the new information requires edits or removal.
+- Each bullet must remain factually correct and cite the appropriate source IDs from the context or prior findings.
+</instructions>
+
+<output_formatting>
+<incidental_findings>
+<bullet>Finding with rationale and follow-up <source>comma,separated,source_ids</source></bullet>
+...
+</incidental_findings>
+</output_formatting>
+
+<context>
+Discharge summary:
+{discharge_summary}
+
+Current incidental findings:
+{existing_incidentals}
+
+New context:
+{context}
+</context>

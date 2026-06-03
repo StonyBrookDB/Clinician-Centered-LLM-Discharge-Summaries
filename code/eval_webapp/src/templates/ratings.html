@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block title %}Review Case - Discharge Summary Evaluation{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/review_forms.css">
+<style>
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #0068c9;
+        text-decoration: none;
+        margin-bottom: 1rem;
+        font-weight: 500;
+    }
+    .back-link:hover {
+        text-decoration: underline;
+    }
+
+    .instructions-banner {
+        background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+        border: 1px solid #bae6fd;
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .instructions-banner h3 {
+        margin: 0 0 0.75rem 0;
+        color: #0369a1;
+        font-size: 1rem;
+    }
+    .instructions-banner ol {
+        margin: 0;
+        padding-left: 1.25rem;
+        color: #0c4a6e;
+    }
+    .instructions-banner li {
+        margin-bottom: 0.5rem;
+    }
+    .instructions-banner li:last-child {
+        margin-bottom: 0;
+    }
+
+    .case-details {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    .case-details-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        cursor: pointer;
+        user-select: none;
+    }
+    .case-details-header:hover {
+        background: #f3f4f6;
+    }
+    .case-details-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #1f2937;
+    }
+    .case-details-toggle {
+        font-size: 1.25rem;
+        color: #6b7280;
+        transition: transform 0.2s;
+    }
+    .case-details.collapsed .case-details-toggle {
+        transform: rotate(-90deg);
+    }
+    .case-details.collapsed .case-details-content {
+        display: none;
+    }
+    .case-details-content {
+        padding: 1.25rem;
+    }
+    .case-details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .detail-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-bottom: 0.25rem;
+    }
+    .detail-value {
+        font-size: 1rem;
+        color: #1f2937;
+        font-weight: 500;
+    }
+
+    .documents-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .documents-section h2 {
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+        color: #1f2937;
+    }
+    .documents-section p {
+        color: #6b7280;
+        margin: 0 0 1rem 0;
+    }
+    .doc-viewer-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background-color: #0068c9;
+        color: white;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    .doc-viewer-btn:hover {
+        background-color: #0054a3;
+        text-decoration: none;
+    }
+
+    /* Ratings Sections */
+    .ratings-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        overflow: visible;
+    }
+    .ratings-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        cursor: pointer;
+        user-select: none;
+    }
+    .ratings-section-header:hover {
+        background: #f3f4f6;
+    }
+    .ratings-section-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #1f2937;
+    }
+    .ratings-section-toggle {
+        font-size: 1.25rem;
+        color: #6b7280;
+        transition: transform 0.2s;
+    }
+    .ratings-section.collapsed .ratings-section-toggle {
+        transform: rotate(-90deg);
+    }
+    .ratings-section.collapsed .ratings-section-content {
+        display: none;
+    }
+    .ratings-section-content {
+        padding: 1.25rem;
+    }
+
+    /* Rating Instruction Box */
+    .ratings-instruction {
+        background-color: #fff3cd;
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #ffc107;
+        color: #856404;
+        font-size: 0.95rem;
+    }
+
+    /* Individual Rating Question */
+    .rating-question {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .rating-question:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    .rating-question-text {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #1f2937;
+        line-height: 1.4;
+    }
+    .hint-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        margin-left: 6px;
+        border-radius: 50%;
+        background: #1d4ed8;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: help;
+        position: relative;
+        top: -1px;
+    }
+    .hint-tooltip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: 260px;
+        padding: 0.6rem 0.75rem;
+        border-radius: 6px;
+        background: #111827;
+        color: #f9fafb;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        display: none;
+        z-index: 5;
+    }
+    .hint-icon:hover .hint-tooltip,
+    .hint-icon:focus .hint-tooltip {
+        display: block;
+    }
+    .rating-form {
+        margin: 0;
+    }
+    .rating-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .rating-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .rating-option:hover {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+    }
+    .rating-option input[type="radio"] {
+        margin: 0;
+        cursor: pointer;
+    }
+    .rating-option input[type="radio"]:checked + .rating-label {
+        font-weight: 600;
+        color: #0068c9;
+    }
+    .rating-option:has(input:checked) {
+        background: #e0f2fe;
+        border-color: #0068c9;
+    }
+    .rating-label {
+        font-size: 0.875rem;
+        color: #374151;
+        white-space: nowrap;
+    }
+
+    /* PCP Questions Divider */
+    .pcp-questions {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid #e5e7eb;
+    }
+    .pcp-divider {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .pcp-divider::before,
+    .pcp-divider::after {
+        content: "";
+        flex: 1;
+        border-bottom: 1px solid #d1d5db;
+    }
+    .pcp-divider span {
+        padding: 0 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6b7280;
+        background: white;
+    }
+
+    .review-status-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    .review-status-row .status-label {
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .error-message {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="/overview" class="back-link">
+    ← Back to Dashboard
+</a>
+
+{% if error %}
+<div class="error-message">{{ error }}</div>
+{% endif %}
+
+{% if review %}
+<div class="review-status-row">
+    <span class="status-label">Review status:</span>
+    {% set review_completed = review.review_completed %}
+    {% set badge_id = "review-status-badge" %}
+    {% include "partials/review_status_badge.html" %}
+</div>
+
+<div class="case-details" id="caseDetails">
+    <div class="case-details-header" onclick="toggleSection('caseDetails')">
+        <h2>Case Details</h2>
+        <span class="case-details-toggle">▼</span>
+    </div>
+    <div class="case-details-content">
+        <div class="case-details-grid">
+            <div class="detail-item">
+                <span class="detail-label">Encounter Number</span>
+                <span class="detail-value">{{ review.encounter_number }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Patient Age</span>
+                <span class="detail-value">{{ review.patient_age or '—' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Patient Gender</span>
+                <span class="detail-value">{{ review.patient_gender or '—' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Length of Stay</span>
+                <span class="detail-value">{{ review.los or '—' }} days</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Reviewer Type</span>
+                <span class="detail-value">{{ 'PCP' if review.is_pcp else 'Specialist' }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="documents-section">
+    <h2>Documents for Review</h2>
+    <p>Click the button below to open the document viewer. You'll be able to view the clinical notes and both discharge summaries.</p>
+    <a href="{{ doc_viewer_url }}" target="_blank" class="doc-viewer-btn">
+        Open Document Viewer ↗
+    </a>
+</div>
+
+{# Incidental Findings Section #}
+{% if incidental_findings and incidental_findings|length > 0 %}
+<div class="ratings-section" id="incidentalFindings">
+    <div class="ratings-section-header" onclick="toggleSection('incidentalFindings')">
+        <h2>Incidental Findings Evaluation</h2>
+        <span class="ratings-section-toggle">▼</span>
+    </div>
+    {% include "partials/incidental_findings.html" %}
+</div>
+{% endif %}
+
+{# Overall Preference Section - always last #}
+<div class="ratings-section" id="overallPreference">
+    <div class="ratings-section-header" onclick="toggleSection('overallPreference')">
+        <h2>Overall Preference</h2>
+        <span class="ratings-section-toggle">▼</span>
+    </div>
+    {% include "partials/preference.html" %}
+</div>
+
+{% else %}
+<div class="error-message">
+    No review data found. Please return to the dashboard and select a valid case.
+</div>
+{% endif %}
+
+<script>
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    section.classList.toggle('collapsed');
+}
+</script>
+{% endblock %}

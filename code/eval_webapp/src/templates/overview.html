@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}Overview - Discharge Summary Evaluation{% endblock %}
+
+{% block head %}
+<style>
+    .overview-header {
+        margin-bottom: 1.5rem;
+    }
+    .overview-header h1 {
+        margin: 0 0 0.5rem 0;
+        color: #1f2937;
+    }
+    .overview-header p {
+        margin: 0;
+        color: #6b7280;
+    }
+    .encounters-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .encounters-table th {
+        background-color: #f9fafb;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    .encounters-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        color: #1f2937;
+    }
+    .encounters-table tr:last-child td {
+        border-bottom: none;
+    }
+    .encounters-table tr:hover {
+        background-color: #f9fafb;
+    }
+    .review-link {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background-color: #0068c9;
+        color: white;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    .review-link:hover {
+        background-color: #0054a3;
+        text-decoration: none;
+    }
+    .example-badge {
+        display: inline-block;
+        margin-left: 0.5rem;
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #1e3a8a;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6b7280;
+    }
+    .empty-state h2 {
+        margin: 0 0 0.5rem 0;
+        color: #374151;
+    }
+    .admin-dashboard {
+        margin-top: 2rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+    }
+    .admin-dashboard h2 {
+        margin: 0 0 0.5rem 0;
+        color: #111827;
+    }
+    .admin-dashboard p {
+        margin: 0 0 1.5rem 0;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+    .admin-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .admin-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+        background: #f9fafb;
+    }
+    .admin-card h3 {
+        margin: 0 0 0.75rem 0;
+        font-size: 1rem;
+        color: #1f2937;
+    }
+    .admin-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        background: white;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .admin-table th {
+        text-align: left;
+        background: #f3f4f6;
+        padding: 0.6rem;
+        font-weight: 600;
+        color: #374151;
+    }
+    .admin-table td {
+        padding: 0.6rem;
+        border-bottom: 1px solid #e5e7eb;
+        color: #1f2937;
+    }
+    .admin-table tr:last-child td {
+        border-bottom: none;
+    }
+    .admin-empty {
+        font-size: 0.85rem;
+        color: #6b7280;
+        padding: 0.5rem 0;
+    }
+    .admin-assignments-row td {
+        padding: 0.75rem;
+        background: #f3f4f6;
+    }
+    .admin-assignments-details {
+        display: block;
+    }
+    .admin-assignments-details > summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: #1f2937;
+        list-style: none;
+    }
+    .admin-assignments-details > summary::marker {
+        display: none;
+    }
+    .admin-assignments-details > summary::-webkit-details-marker {
+        display: none;
+    }
+    .admin-assignments-details > summary::before {
+        content: "▸";
+        margin-right: 0.5rem;
+    }
+    .admin-assignments-details[open] > summary::before {
+        content: "▾";
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="overview-header">
+    <h1>Review Dashboard</h1>
+    <p>Click on a case below to begin or continue your review.</p>
+</div>
+
+{% if error %}
+<div class="flash-message error">{{ error }}</div>
+{% endif %}
+
+{% if encounters %}
+<table class="encounters-table">
+    <thead>
+        <tr>
+            <th>Encounter Number</th>
+            <th>Age</th>
+            <th>Gender</th>
+            <th>Length of Stay (Days)</th>
+            <th>Notes</th>
+            <th>Findings</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for enc in encounters %}
+        <tr>
+            <td>
+                {{ enc.encounter_number }}
+                {% if example_encounters and enc.encounter_number in example_encounters %}
+                <span class="example-badge">Example</span>
+                {% endif %}
+            </td>
+            <td>{{ enc.patient_age or '—' }}</td>
+            <td>{{ enc.patient_gender or '—' }}</td>
+            <td>{{ enc.los or '—' }}</td>
+            <td>{{ enc.note_count }}</td>
+            <td>{{ enc.findings_count }}</td>
+            <td>
+                <span class="{{ 'status-complete' if enc.review_completed else 'status-incomplete' }}">
+                    {{ 'Complete' if enc.review_completed else 'Incomplete' }}
+                </span>
+            </td>
+            <td>
+                <a href="/documents?encounter_number={{ enc.encounter_number }}" class="review-link">
+                    Review
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <h2>No encounters assigned</h2>
+    <p>You don't have any encounters to review at this time.</p>
+</div>
+{% endif %}
+
+{% if is_admin %}
+<div class="admin-dashboard">
+    <h2>Admin Dashboard</h2>
+    <p>Visible only to admin accounts. Displays assignments, completion progress, and recent activity for other reviewers.</p>
+
+    <div class="admin-grid">
+        <div class="admin-card">
+            <h3>Reviewer Progress</h3>
+            {% if admin_summary %}
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Doctor ID</th>
+                        <th>Reviewer</th>
+                        <th>Email</th>
+                        <th>Assigned</th>
+                        <th>Completed</th>
+                        <th>Completion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in admin_summary %}
+                    <tr>
+                        <td>{{ row.doctor_id }}</td>
+                        <td>{{ row.first_name }} {{ row.last_name }}</td>
+                        <td>{{ row.email }}</td>
+                        <td>{{ row.total_assigned }}</td>
+                        <td>{{ row.completed_assigned }}</td>
+                        <td>{{ row.completion_percent }}%</td>
+                    </tr>
+                    <tr class="admin-assignments-row">
+                        <td colspan="7">
+                            <details class="admin-assignments-details">
+                                <summary>
+                                    Assignments ({{ row.assignments | length }})
+                                </summary>
+                                {% if row.assignments %}
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Encounter</th>
+                                            <th>Age</th>
+                                            <th>Gender</th>
+                                            <th>LOS</th>
+                                            <th>Notes</th>
+                                            <th>Findings</th>
+                                            <th>Status</th>
+                                            <th>First Look</th>
+                                            <th>Review</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for assignment in row.assignments %}
+                                        <tr>
+                                            <td>{{ assignment.encounter_number }}</td>
+                                            <td>{{ assignment.patient_age or '—' }}</td>
+                                            <td>{{ assignment.patient_gender or '—' }}</td>
+                                            <td>{{ assignment.los or '—' }}</td>
+                                            <td>{{ assignment.note_count }}</td>
+                                            <td>{{ assignment.findings_count }}</td>
+                                            <td>
+                                                <span class="{{ 'status-complete' if assignment.review_completed else 'status-incomplete' }}">
+                                                    {{ 'Complete' if assignment.review_completed else 'Incomplete' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if assignment.first_look == "AI" %}
+                                                    B
+                                                {% elif assignment.first_look == "Human" %}
+                                                    A
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="/documents?encounter_number={{ assignment.encounter_number }}&review_doctor_id={{ assignment.doctor_id }}&admin_view=1" class="review-link">
+                                                    Review
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                                {% else %}
+                                <div class="admin-empty">No assignments.</div>
+                                {% endif %}
+                            </details>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="admin-empty">No reviewer data available.</div>
+            {% endif %}
+        </div>
+
+        <div class="admin-card">
+            <h3>Recent Activity</h3>
+            {% if admin_activity %}
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Doctor ID</th>
+                        <th>Reviewer</th>
+                        <th>Action</th>
+                        <th>Encounter</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in admin_activity %}
+                    <tr>
+                        <td>{{ event.created_at }}</td>
+                        <td>{{ event.doctor_id or '—' }}</td>
+                        <td>{{ event.reviewer_label }}</td>
+                        <td>{{ event.action_label }}</td>
+                        <td>{{ event.encounter_number or '—' }}</td>
+                        <td>{{ event.detail_text or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="admin-empty">No recent activity recorded.</div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endif %}
+{% endblock %}

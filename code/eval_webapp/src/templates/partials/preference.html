@@ -1,0 +1,74 @@
+{# Overall Preference Section #}
+{% set preference_hint = "" %}
+
+<div class="ratings-section-content">
+    <div class="ratings-instruction">
+        <strong>Instructions:</strong> After reviewing both summaries, indicate which one you prefer overall for this patient's discharge summary.
+    </div>
+
+    <div class="preference-question">
+        <p class="question-text">
+            <strong>Which discharge summary do you prefer?</strong>
+            {% if preference_hint and preference_hint|trim %}
+            <span class="hint-icon" tabindex="0" aria-label="{{ preference_hint }}">
+                i
+                <span class="hint-tooltip">{{ preference_hint }}</span>
+            </span>
+            {% endif %}
+        </p>
+        <form class="preference-form"
+              hx-post="/ratings/{{ review.encounter_number }}/{{ doctor_id }}/update"
+              hx-trigger="change"
+              hx-target="#review-status-badge"
+              hx-swap="outerHTML"
+              {% if read_only %}data-read-only="true"{% endif %}>
+            <input type="hidden" name="field" value="overall_preference">
+            <div class="preference-options">
+                <label class="preference-option">
+                    <input type="radio" name="value" value="0"
+                           {% if review.overall_preference == 0 %}checked{% endif %}
+                           {% if read_only %}disabled{% endif %}>
+                    <span class="preference-label">
+                        <span class="preference-letter">A</span>
+                        <span class="preference-text">Summary A</span>
+                    </span>
+                </label>
+                <label class="preference-option">
+                    <input type="radio" name="value" value="1"
+                           {% if review.overall_preference == 1 %}checked{% endif %}
+                           {% if read_only %}disabled{% endif %}>
+                    <span class="preference-label">
+                        <span class="preference-letter">B</span>
+                        <span class="preference-text">Summary B</span>
+                    </span>
+                </label>
+            </div>
+        </form>
+        <div class="finding-comment">
+            <label class="comment-label" for="preference-comment-{{ review.encounter_number }}-{{ doctor_id }}">
+                Comment (optional)
+            </label>
+            <form class="comment-form"
+                  hx-post="/ratings/{{ review.encounter_number }}/{{ doctor_id }}/preference-comment"
+                  hx-trigger="submit, keyup changed delay:600ms"
+                  hx-target="#review-status-badge"
+                  hx-swap="outerHTML"
+                  {% if read_only %}data-read-only="true"{% endif %}>
+                <textarea id="preference-comment-{{ review.encounter_number }}-{{ doctor_id }}"
+                          name="comment_text"
+                          rows="3"
+                          placeholder="Add any context or rationale..."
+                          {% if read_only %}disabled{% endif %}>{{ review.overall_preference_comment or '' }}</textarea>
+                <div class="comment-actions">
+                    <button type="submit" class="comment-save" {% if read_only %}disabled{% endif %}>Save comment</button>
+                    <span class="comment-saved" role="status" aria-live="polite">Saved</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="completion-note">
+        <strong>Completion:</strong> This review is marked complete only when every rating question is answered (see the status badge above).
+        Return to the <a href="/overview">overview page</a> to select another case when finished.
+    </div>
+</div>

@@ -1,0 +1,86 @@
+{# Summary B (AI) Ratings Section #}
+{% from "partials/rating_question.html" import rating_question %}
+
+<div class="ratings-section-content">
+    <div class="ratings-instruction">
+        <strong>Instructions:</strong> Review Summary B in the Documents panel, then rate your agreement with each statement below.
+    </div>
+
+    {{ rating_question(
+        "Overall, this summary is of high quality.",
+        "ai_quality",
+        review.ai_quality,
+        review.encounter_number,
+        doctor_id,
+        "Rate the summary of what you view as a well-written discharge summary. Keep in mind that the intended purpose of the discharge summary, as set out by CMS and the Joint Commission, is to clearly communicate a patient care plan to the post-hospital care team.",
+        read_only=read_only
+    ) }}
+
+    {{ rating_question(
+        "This summary is appropriately concise and readable.",
+        "ai_clarity",
+        review.ai_clarity,
+        review.encounter_number,
+        doctor_id,
+        "The language and grammar are what would be expected of a trained physician. The intended audience for the summary is the post-hospital care team (usage of medical terminology, abbreviations, and syntax is acceptable if a general physician could understand them).",
+        read_only=read_only
+    ) }}
+
+    {{ rating_question(
+        "The information presented in this summary is accurate and factually correct.",
+        "ai_factuality",
+        review.ai_factuality,
+        review.encounter_number,
+        doctor_id,
+        "",
+        read_only=read_only
+    ) }}
+
+    {{ rating_question(
+        "The summary includes the relevant clinical events that occurred during the patient stay.",
+        "ai_completeness",
+        review.ai_completeness,
+        review.encounter_number,
+        doctor_id,
+        "The summary includes the relevant clinical events that occurred during the patient stay.\nAssess the summary on the standard for not missing any key clinical information that\nwould be detrimental to the patient’s post hospital care if the downstream provider were\nnot informed.",
+        read_only=read_only
+    ) }}
+
+    {% if review.is_pcp %}
+    <div class="pcp-questions">
+        <div class="pcp-divider">
+            <span>Additional Questions for PCPs</span>
+        </div>
+
+        {{ rating_question(
+            "Overall, I found this summary easy to understand.",
+            "ai_easy_understand",
+            review.ai_easy_understand,
+            review.encounter_number,
+            doctor_id,
+            "",
+            read_only=read_only
+        ) }}
+
+        {{ rating_question(
+            "Based on this summary, it would be easy for me to verbalize the most relevant aspects of the hospitalization to a patient and/or caregiver.",
+            "ai_easy_verbalize",
+            review.ai_easy_verbalize,
+            review.encounter_number,
+            doctor_id,
+            "",
+            read_only=read_only
+        ) }}
+
+        {{ rating_question(
+            "Based on this summary, it would be easy for me to provide follow-up care.",
+            "ai_easy_follow_up",
+            review.ai_easy_follow_up,
+            review.encounter_number,
+            doctor_id,
+            "",
+            read_only=read_only
+        ) }}
+    </div>
+    {% endif %}
+</div>

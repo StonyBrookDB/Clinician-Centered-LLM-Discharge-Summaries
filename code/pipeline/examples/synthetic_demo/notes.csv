@@ -1,0 +1,5 @@
+encounter_id,note_id,note_type,publish_datetime,note_text,include_for_summary,include_for_incidental,is_reference_summary
+synthetic-001,note-001,admission_note,2026-01-01T09:15:00,"SYNTHETIC DATA ONLY. Adult patient admitted for evaluation of chest discomfort after climbing stairs. Initial troponin was negative and vital signs were stable.",,,
+synthetic-001,note-002,progress_note,2026-01-02T10:30:00,"SYNTHETIC DATA ONLY. Chest discomfort resolved overnight. Telemetry showed no sustained arrhythmia. Plan included medication reconciliation and outpatient follow-up.",,,
+synthetic-001,note-003,radiology_report,2026-01-02T12:00:00,"SYNTHETIC DATA ONLY. Chest CT showed no pulmonary embolism. A 4 mm right upper lobe pulmonary nodule was incidentally noted.",false,true,
+synthetic-001,note-004,discharge_instruction,2026-01-03T11:45:00,"SYNTHETIC DATA ONLY. Discharge instructions included primary care follow-up within one week and return precautions for recurrent chest pain or shortness of breath.",,,

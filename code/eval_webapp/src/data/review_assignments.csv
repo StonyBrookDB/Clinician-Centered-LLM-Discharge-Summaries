@@ -1,0 +1,2 @@
+encounter_number,doctor_id,patient_age,patient_gender,LOS,file_path,first_look
+-1,-1,55,Female,3,dummy_account,Human
