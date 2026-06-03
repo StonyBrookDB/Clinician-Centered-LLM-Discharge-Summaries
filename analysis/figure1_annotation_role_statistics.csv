@@ -1,5 +1,0 @@
-Analysis,Unit,PCP n,PCP mean,PCP SD,Hospitalist n,Hospitalist mean,Hospitalist SD,Statistical test,P value
-Harm potential score,Annotation,102,1.65,1.83,36,1.58,2.02,"Mann-Whitney U, two-sided",0.675
-Harm likelihood score,Annotation,102,2.66,2.51,36,0.83,1.98,"Mann-Whitney U, two-sided",5.33e-04
-Inaccuracy count,Encounter-review,60,0.400,0.827,60,0.383,1.027,"Wilcoxon signed-rank, two-sided",0.664
-Omission count,Encounter-review,60,1.300,1.835,60,0.217,0.585,"Wilcoxon signed-rank, two-sided",1.16e-05
