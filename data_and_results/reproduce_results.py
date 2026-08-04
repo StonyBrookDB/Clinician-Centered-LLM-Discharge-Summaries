@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import mannwhitneyu, spearmanr, wilcoxon
+from scipy.stats import mannwhitneyu, spearmanr, t as student_t, wilcoxon
 
 
 EXPORT_DIR = Path(__file__).resolve().parent
@@ -34,6 +34,8 @@ TABLE1_OUTPUT_PATH = OUTPUT_DIR / "table1_mean_survey_ratings_by_question.csv"
 TABLE_S6_OUTPUT_PATH = OUTPUT_DIR / "table_s6_role_delta_by_specialty.csv"
 FIG1_STATS_OUTPUT_PATH = OUTPUT_DIR / "figure1_annotation_role_statistics.csv"
 FIG1_SUMMARY_STATS_OUTPUT_PATH = OUTPUT_DIR / "figure1_annotation_summary_type_statistics.csv"
+FIG1_COUNT_STATS_OUTPUT_PATH = OUTPUT_DIR / "figure1_annotation_summary_type_count_statistics.csv"
+REVIEWER_CONSISTENCY_OUTPUT_PATH = OUTPUT_DIR / "reviewer_consistency_statistics.csv"
 FIG1_OUTPUT_PATH = OUTPUT_DIR / "figure1_annotation_harm_distribution.jpg"
 FIG2_OUTPUT_PATH = OUTPUT_DIR / "figure2_los_shared_rating_trends.png"
 FIG3_OUTPUT_PATH = OUTPUT_DIR / "figure3_role_delta_shared.png"
@@ -70,11 +72,16 @@ METRICS = (
 SHARED_METRICS = tuple(metric for metric in METRICS if not metric.pcp_only)
 
 OUTPUT_COLUMNS = (
+    "n",
     "Question",
     "Evaluators",
     "Mean human-summary score",
     "Mean AI-summary score",
     "Mean score difference",
+    "Reviewer clusters",
+    "Encounter clusters",
+    "Degrees of freedom",
+    "Statistical test",
     "P value",
 )
 
@@ -89,11 +96,16 @@ MARKDOWN_COLUMNS = (
 
 TABLE_CAPTION = (
     "Table 1. Mean survey results of physician reviewer ratings for human-authored "
-    "vs. LLM-generated discharge summaries, based on a 1-5 Likert rating scale."
+    "vs. LLM-generated discharge summaries, based on a 1-5 Likert rating scale. "
+    "P values are from two-sided tests of the mean reviewer-encounter LLM-minus-human "
+    "rating difference using two-way cluster-robust standard errors clustered by reviewer "
+    "and encounter. Degrees of freedom equal the smaller number of clusters minus one "
+    "(11 for shared questions and 5 for PCP-only questions)."
 )
 TABLE_S6_CAPTION = (
     "Table S6. Mean difference in scores between LLM-generated vs. human-authored "
-    "summaries, stratified by question and reviewer specialty (N = 60)."
+    "summaries, stratified by question and reviewer specialty (N = 60). P values are "
+    "from two-sided paired Wilcoxon signed-rank tests."
 )
 FIGURE1_STATS_CAPTION = (
     "Figure 1 supplemental statistics. Annotation harm scores and issue counts compared "
@@ -102,6 +114,16 @@ FIGURE1_STATS_CAPTION = (
 FIGURE1_SUMMARY_STATS_CAPTION = (
     "Figure 1 supplemental statistics. Annotation harm scores compared between "
     "human-authored and LLM-generated summaries."
+)
+FIGURE1_COUNT_STATS_CAPTION = (
+    "Figure 1 supplemental statistics. Annotation counts compared between human-authored "
+    "and LLM-generated summaries within reviewer-encounter records. P values are from "
+    "two-sided paired Wilcoxon signed-rank tests."
+)
+REVIEWER_CONSISTENCY_CAPTION = (
+    "Reviewer consistency statistics. Descriptive agreement values use matched PCP-hospitalist "
+    "ratings. The P value compares each reviewer pair's mean absolute rating difference for "
+    "human-authored versus LLM-generated summaries using a two-sided paired Wilcoxon signed-rank test."
 )
 FIGURE1_CAPTION = (
     "Figure 1. Heat map of physician reviewer annotated error counts and harm ratings "
@@ -165,6 +187,36 @@ FIGURE1_SUMMARY_STATS_COLUMNS = (
     "P value",
 )
 
+FIGURE1_COUNT_STATS_COLUMNS = (
+    "Analysis",
+    "Unit",
+    "Review records",
+    "Human-authored total",
+    "Human-authored mean",
+    "Human-authored SD",
+    "LLM-generated total",
+    "LLM-generated mean",
+    "LLM-generated SD",
+    "Statistical test",
+    "P value",
+)
+
+REVIEWER_CONSISTENCY_COLUMNS = (
+    "Comparison",
+    "Test unit",
+    "Reviewer pairs",
+    "Human-authored matched ratings",
+    "Human-authored mean absolute difference",
+    "Human-authored exact agreement",
+    "Human-authored within-1 agreement",
+    "LLM-generated matched ratings",
+    "LLM-generated mean absolute difference",
+    "LLM-generated exact agreement",
+    "LLM-generated within-1 agreement",
+    "Statistical test",
+    "P value",
+)
+
 
 def _mean(values: Iterable[float]) -> float:
     values = list(values)
@@ -184,7 +236,7 @@ def _load_likert() -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         fieldnames = set(reader.fieldnames or [])
-        required = {"encounter_id", "reviewer_role", "los_days"}
+        required = {"encounter_id", "reviewer_id", "reviewer_role", "los_days"}
         for metric in METRICS:
             required.add(metric.human_col)
             required.add(metric.ai_col)
@@ -216,26 +268,79 @@ def _load_annotations() -> list[dict[str, str]]:
         return list(reader)
 
 
+def _cluster_covariance_component(
+    residuals: np.ndarray,
+    cluster_ids: list[object],
+) -> tuple[float, int]:
+    """Return the small-sample-corrected one-way clustered variance component."""
+    if len(residuals) != len(cluster_ids):
+        raise ValueError("Residual and cluster ID lengths do not match")
+
+    cluster_sums: dict[object, float] = {}
+    for residual, cluster_id in zip(residuals, cluster_ids):
+        cluster_sums[cluster_id] = cluster_sums.get(cluster_id, 0.0) + float(residual)
+
+    cluster_count = len(cluster_sums)
+    if cluster_count < 2:
+        raise ValueError("Cluster-robust inference requires at least two clusters")
+
+    observation_count = len(residuals)
+    correction = cluster_count / (cluster_count - 1)
+    variance = correction * sum(value**2 for value in cluster_sums.values()) / observation_count**2
+    return variance, cluster_count
+
+
+def _two_way_clustered_mean_test(
+    values: list[float],
+    reviewer_ids: list[str],
+    encounter_ids: list[str],
+) -> tuple[float, int, int, int]:
+    """Two-sided intercept test with reviewer- and encounter-clustered standard errors."""
+    if not (len(values) == len(reviewer_ids) == len(encounter_ids)):
+        raise ValueError("Values and cluster ID lengths do not match")
+    if len(values) < 2:
+        raise ValueError("Cluster-robust inference requires at least two observations")
+
+    data = np.asarray(values, dtype=float)
+    residuals = data - data.mean()
+    reviewer_variance, reviewer_clusters = _cluster_covariance_component(residuals, reviewer_ids)
+    encounter_variance, encounter_clusters = _cluster_covariance_component(residuals, encounter_ids)
+    intersections = list(zip(reviewer_ids, encounter_ids))
+    intersection_variance, _ = _cluster_covariance_component(residuals, intersections)
+    variance = reviewer_variance + encounter_variance - intersection_variance
+    if variance <= 0:
+        raise ValueError(f"Two-way cluster-robust variance must be positive; got {variance}")
+
+    degrees_of_freedom = min(reviewer_clusters, encounter_clusters) - 1
+    statistic = float(data.mean() / math.sqrt(variance))
+    pvalue = float(2 * student_t.sf(abs(statistic), degrees_of_freedom))
+    return pvalue, reviewer_clusters, encounter_clusters, degrees_of_freedom
+
+
 def _rating_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for metric in METRICS:
-        values: list[tuple[float, float]] = []
+        values: list[tuple[float, float, str, str]] = []
         for row in rows:
             if metric.pcp_only and row["reviewer_role"].strip().lower() != "pcp":
                 continue
             human = float(row[metric.human_col])
             ai = float(row[metric.ai_col])
             if 1 <= human <= 5 and 1 <= ai <= 5:
-                values.append((human, ai))
+                values.append((human, ai, row["reviewer_id"], row["encounter_id"]))
 
         if not values:
             continue
 
-        human_values = [human for human, _ in values]
-        ai_values = [ai for _, ai in values]
-        deltas = [ai - human for human, ai in values]
-        p = 1.0 if all(delta == 0 for delta in deltas) else float(
-            wilcoxon(ai_values, human_values, alternative="greater").pvalue
+        human_values = [human for human, _, _, _ in values]
+        ai_values = [ai for _, ai, _, _ in values]
+        deltas = [ai - human for human, ai, _, _ in values]
+        reviewer_ids = [reviewer_id for _, _, reviewer_id, _ in values]
+        encounter_ids = [encounter_id for _, _, _, encounter_id in values]
+        p, reviewer_clusters, encounter_clusters, degrees_of_freedom = _two_way_clustered_mean_test(
+            deltas,
+            reviewer_ids,
+            encounter_ids,
         )
         delta_mean = _mean(deltas)
         out.append(
@@ -246,6 +351,10 @@ def _rating_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
                 "Mean human-summary score": f"{_mean(human_values):.2f}",
                 "Mean AI-summary score": f"{_mean(ai_values):.2f}",
                 "Mean score difference": f"+{delta_mean:.2f}",
+                "Reviewer clusters": str(reviewer_clusters),
+                "Encounter clusters": str(encounter_clusters),
+                "Degrees of freedom": str(degrees_of_freedom),
+                "Statistical test": "Mean-difference t test with two-way cluster-robust SE, two-sided",
                 "P value": _pvalue(p),
             }
         )
@@ -480,6 +589,62 @@ def _annotation_harm_summary_type_rows(rows: list[dict[str, str]]) -> list[dict[
                 "LLM-generated mean": _format_stat(_mean(ai), 2),
                 "LLM-generated SD": _format_stat(_sd(ai), 2),
                 "Statistical test": "Mann-Whitney U, two-sided",
+                "P value": _pvalue(p),
+            }
+        )
+    return out
+
+
+def _annotation_issue_count_summary_type_rows(
+    annotation_rows: list[dict[str, str]],
+    likert_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    annotation_counts: dict[tuple[str, str, str, str], int] = {}
+    for row in annotation_rows:
+        issue_type = row["issue_type"].strip().lower()
+        if issue_type not in {"inaccuracy", "omission"}:
+            continue
+        key = (
+            row["encounter_id"],
+            row["reviewer_id"],
+            _summary_type(row["summary_label"]),
+            issue_type,
+        )
+        annotation_counts[key] = annotation_counts.get(key, 0) + 1
+
+    out: list[dict[str, str]] = []
+    for issue_types, label in (
+        ({"inaccuracy", "omission"}, "All errors"),
+        ({"omission"}, "Omissions"),
+        ({"inaccuracy"}, "Inaccuracies"),
+    ):
+        human_counts: list[float] = []
+        ai_counts: list[float] = []
+        for row in likert_rows:
+            base_key = (row["encounter_id"], row["reviewer_id"])
+            human_counts.append(
+                float(sum(annotation_counts.get((*base_key, "Human", issue_type), 0) for issue_type in issue_types))
+            )
+            ai_counts.append(
+                float(sum(annotation_counts.get((*base_key, "AI", issue_type), 0) for issue_type in issue_types))
+            )
+
+        differences = [human - ai for human, ai in zip(human_counts, ai_counts)]
+        p = 1.0 if all(abs(difference) < 1e-12 for difference in differences) else float(
+            wilcoxon(human_counts, ai_counts, alternative="two-sided", zero_method="wilcox").pvalue
+        )
+        out.append(
+            {
+                "Analysis": label,
+                "Unit": "Reviewer-encounter record",
+                "Review records": str(len(human_counts)),
+                "Human-authored total": str(int(sum(human_counts))),
+                "Human-authored mean": _format_stat(_mean(human_counts), 3),
+                "Human-authored SD": _format_stat(_sd(human_counts), 3),
+                "LLM-generated total": str(int(sum(ai_counts))),
+                "LLM-generated mean": _format_stat(_mean(ai_counts), 3),
+                "LLM-generated SD": _format_stat(_sd(ai_counts), 3),
+                "Statistical test": "Wilcoxon signed-rank, two-sided",
                 "P value": _pvalue(p),
             }
         )
@@ -739,7 +904,7 @@ def _table_s6_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
         hospitalist = [role_deltas["Hospitalist"] for role_deltas in paired]
         differences = [pcp_delta - hospitalist_delta for pcp_delta, hospitalist_delta in zip(pcp, hospitalist)]
         p = 1.0 if all(abs(difference) < 1e-12 for difference in differences) else float(
-            wilcoxon(pcp, hospitalist, alternative="greater").pvalue
+            wilcoxon(pcp, hospitalist, alternative="two-sided").pvalue
         )
         out.append(
             {
@@ -754,6 +919,75 @@ def _table_s6_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
             }
         )
     return out
+
+
+def _reviewer_consistency_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    by_encounter: dict[str, dict[str, dict[str, str]]] = {}
+    for row in rows:
+        role = _reviewer_role(row["reviewer_role"])
+        encounter = by_encounter.setdefault(row["encounter_id"], {})
+        if role in encounter:
+            raise ValueError(f"Encounter {row['encounter_id']} has more than one {role} review")
+        encounter[role] = row
+
+    matched_differences: dict[str, list[float]] = {"Human": [], "AI": []}
+    pair_differences: dict[tuple[str, str], dict[str, list[float]]] = {}
+    for encounter in by_encounter.values():
+        if "PCP" not in encounter or "Hospitalist" not in encounter:
+            continue
+        pcp = encounter["PCP"]
+        hospitalist = encounter["Hospitalist"]
+        pair_key = (pcp["reviewer_id"], hospitalist["reviewer_id"])
+        pair = pair_differences.setdefault(pair_key, {"Human": [], "AI": []})
+        for metric in SHARED_METRICS:
+            for summary_type, column in (("Human", metric.human_col), ("AI", metric.ai_col)):
+                pcp_rating = _valid_rating(pcp[column])
+                hospitalist_rating = _valid_rating(hospitalist[column])
+                if pcp_rating is None or hospitalist_rating is None:
+                    continue
+                difference = abs(pcp_rating - hospitalist_rating)
+                matched_differences[summary_type].append(difference)
+                pair[summary_type].append(difference)
+
+    complete_pairs = [pair for pair in pair_differences.values() if pair["Human"] and pair["AI"]]
+    human_pair_means = [round(_mean(pair["Human"]), 3) for pair in complete_pairs]
+    ai_pair_means = [round(_mean(pair["AI"]), 3) for pair in complete_pairs]
+    pair_mean_differences = [human - ai for human, ai in zip(human_pair_means, ai_pair_means)]
+    p = 1.0 if all(abs(difference) < 1e-12 for difference in pair_mean_differences) else float(
+        wilcoxon(
+            human_pair_means,
+            ai_pair_means,
+            alternative="two-sided",
+            zero_method="wilcox",
+            method="auto",
+        ).pvalue
+    )
+
+    def agreement(summary_type: str, predicate: str) -> str:
+        values = matched_differences[summary_type]
+        if predicate == "exact":
+            proportion = sum(value == 0 for value in values) / len(values)
+        else:
+            proportion = sum(value <= 1 for value in values) / len(values)
+        return f"{proportion:.1%}"
+
+    return [
+        {
+            "Comparison": "PCP-hospitalist rating consistency by summary type",
+            "Test unit": "Reviewer pair",
+            "Reviewer pairs": str(len(complete_pairs)),
+            "Human-authored matched ratings": str(len(matched_differences["Human"])),
+            "Human-authored mean absolute difference": f"{_mean(matched_differences['Human']):.2f}",
+            "Human-authored exact agreement": agreement("Human", "exact"),
+            "Human-authored within-1 agreement": agreement("Human", "within_one"),
+            "LLM-generated matched ratings": str(len(matched_differences["AI"])),
+            "LLM-generated mean absolute difference": f"{_mean(matched_differences['AI']):.2f}",
+            "LLM-generated exact agreement": agreement("AI", "exact"),
+            "LLM-generated within-1 agreement": agreement("AI", "within_one"),
+            "Statistical test": "Wilcoxon signed-rank, two-sided",
+            "P value": _pvalue(p),
+        }
+    ]
 
 
 def _boxplot_stats(values: list[float]) -> dict[str, float | list[float]]:
@@ -877,6 +1111,15 @@ def main() -> None:
     _write_simple_csv_and_markdown(TABLE_S6_OUTPUT_PATH, TABLE_S6_COLUMNS, table_s6_rows, TABLE_S6_CAPTION)
     print(f"Wrote {len(table_s6_rows)} rows to {TABLE_S6_OUTPUT_PATH}")
     print(f"Wrote Markdown table to {TABLE_S6_OUTPUT_PATH.with_suffix('.md')}")
+    reviewer_consistency_rows = _reviewer_consistency_rows(likert_rows)
+    _write_simple_csv_and_markdown(
+        REVIEWER_CONSISTENCY_OUTPUT_PATH,
+        REVIEWER_CONSISTENCY_COLUMNS,
+        reviewer_consistency_rows,
+        REVIEWER_CONSISTENCY_CAPTION,
+    )
+    print(f"Wrote {len(reviewer_consistency_rows)} rows to {REVIEWER_CONSISTENCY_OUTPUT_PATH}")
+    print(f"Wrote Markdown table to {REVIEWER_CONSISTENCY_OUTPUT_PATH.with_suffix('.md')}")
     figure1_stats_rows = _annotation_role_stat_rows(annotation_rows, likert_rows)
     _write_simple_csv_and_markdown(
         FIG1_STATS_OUTPUT_PATH,
@@ -895,6 +1138,15 @@ def main() -> None:
     )
     print(f"Wrote {len(figure1_summary_stats_rows)} rows to {FIG1_SUMMARY_STATS_OUTPUT_PATH}")
     print(f"Wrote Markdown table to {FIG1_SUMMARY_STATS_OUTPUT_PATH.with_suffix('.md')}")
+    figure1_count_stats_rows = _annotation_issue_count_summary_type_rows(annotation_rows, likert_rows)
+    _write_simple_csv_and_markdown(
+        FIG1_COUNT_STATS_OUTPUT_PATH,
+        FIGURE1_COUNT_STATS_COLUMNS,
+        figure1_count_stats_rows,
+        FIGURE1_COUNT_STATS_CAPTION,
+    )
+    print(f"Wrote {len(figure1_count_stats_rows)} rows to {FIG1_COUNT_STATS_OUTPUT_PATH}")
+    print(f"Wrote Markdown table to {FIG1_COUNT_STATS_OUTPUT_PATH.with_suffix('.md')}")
     _plot_annotation_harm_distribution(annotation_rows, FIG1_OUTPUT_PATH)
     _write_figure_markdown(FIG1_OUTPUT_PATH, FIGURE1_CAPTION)
     print(f"Wrote Figure 1 to {FIG1_OUTPUT_PATH}")
